@@ -1,6 +1,6 @@
-﻿services:
+services:
   db:
-    image: postgres:latest
+    image: postgres:16
     container_name: bank_db_container
     restart: always
     env_file:

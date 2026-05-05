@@ -44,6 +44,10 @@ namespace bank.Data
                 .WithMany(a => a.ReceivedTransactions)
                 .HasForeignKey(t => t.ToAccountId)
                 .OnDelete(DeleteBehavior.Restrict);
+            
+            modelBuilder.Entity<Account>()
+                .HasIndex(a => a.AccountNumber)
+                .IsUnique();
         }
     }
 }

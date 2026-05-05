@@ -12,8 +12,8 @@ using bank.Data;
 namespace bank.Migrations
 {
     [DbContext(typeof(BankDbContext))]
-    [Migration("20260504195007_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260505145818_InitialAmericanBankSetup")]
+    partial class InitialAmericanBankSetup
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -52,10 +52,17 @@ namespace bank.Migrations
                     b.Property<Guid?>("ParentAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RoutingNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AccountNumber")
+                        .IsUnique();
 
                     b.HasIndex("ParentAccountId");
 

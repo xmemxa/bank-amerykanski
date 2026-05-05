@@ -9,7 +9,8 @@ namespace bank.Models
         
         public Guid UserId { get; set; }
         public User User { get; set; } = null!;
-
+        
+        public string RoutingNumber { get; set; } = "123456789"; // Routing Number banku
         public string AccountNumber { get; set; } = string.Empty;
         public decimal Balance { get; set; } = 0;
         public string Currency { get; set; } = "USD"; // Domyślna waluta

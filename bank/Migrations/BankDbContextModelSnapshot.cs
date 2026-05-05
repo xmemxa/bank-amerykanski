@@ -49,10 +49,17 @@ namespace bank.Migrations
                     b.Property<Guid?>("ParentAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("RoutingNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AccountNumber")
+                        .IsUnique();
 
                     b.HasIndex("ParentAccountId");
 

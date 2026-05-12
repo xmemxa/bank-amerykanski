@@ -48,6 +48,14 @@ namespace bank.Data
             modelBuilder.Entity<Account>()
                 .HasIndex(a => a.AccountNumber)
                 .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Username)
+                .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.SocialSecurityNumber)
+                .IsUnique();
         }
     }
 }

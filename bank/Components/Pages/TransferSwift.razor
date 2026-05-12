@@ -1,0 +1,146 @@
+@page "/transfer/swift"
+@rendermode InteractiveServer
+
+<PageTitle>SWIFT International Transfer – American Bank</PageTitle>
+
+<div class="fade-in transfer-page-center">
+    <div class="page-header">
+        <h1>SWIFT International Transfer</h1>
+        <p class="page-subtitle">Send funds worldwide via the SWIFT network · Settlement: 2–5 business days</p>
+    </div>
+
+    <div class="card">
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">@errorMessage</div>
+        }
+
+        <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="SwiftTransfer">
+            <div class="form-group">
+                <label class="form-label">From Account</label>
+                <InputSelect class="form-select" @bind-Value="model.FromAccount">
+                    <option value="">Select source account</option>
+                    <option value="checking">Primary Checking (····4521) – $12,458.32</option>
+                    <option value="savings">Emergency Fund (····7832) – $45,230.00</option>
+                </InputSelect>
+            </div>
+
+            <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Recipient Bank (International)</h3>
+
+            <div class="form-group">
+                <label class="form-label">SWIFT / BIC Code</label>
+                <InputText class="form-input" @bind-Value="model.SwiftCode" placeholder="e.g., BARCGB22" maxlength="11" />
+                <span class="form-hint">8 or 11 character SWIFT/BIC code of the recipient's bank</span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Recipient Bank Name</label>
+                <InputText class="form-input" @bind-Value="model.BankName" placeholder="e.g., Barclays Bank PLC" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Recipient Bank Country</label>
+                <InputSelect class="form-select" @bind-Value="model.Country">
+                    <option value="">Select country</option>
+                    <option value="GB">United Kingdom</option>
+                    <option value="DE">Germany</option>
+                    <option value="FR">France</option>
+                    <option value="JP">Japan</option>
+                    <option value="AU">Australia</option>
+                    <option value="CA">Canada</option>
+                    <option value="CH">Switzerland</option>
+                    <option value="PL">Poland</option>
+                    <option value="OTHER">Other</option>
+                </InputSelect>
+            </div>
+
+            <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Beneficiary Details</h3>
+
+            <div class="form-group">
+                <label class="form-label">Beneficiary Name</label>
+                <InputText class="form-input" @bind-Value="model.RecipientName" placeholder="Full legal name or business name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">IBAN / Account Number</label>
+                <InputText class="form-input" @bind-Value="model.AccountNumber" placeholder="e.g., GB29 NWBK 6016 1331 9268 19" />
+                <span class="form-hint">IBAN for European countries, account number for others</span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Beneficiary Address</label>
+                <InputText class="form-input" @bind-Value="model.RecipientAddress" placeholder="Street, City, Country" />
+            </div>
+
+            <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Transfer Details</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Amount</label>
+                    <InputNumber class="form-input" @bind-Value="model.Amount" placeholder="0.00" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Currency</label>
+                    <InputSelect class="form-select" @bind-Value="model.Currency">
+                        <option value="USD">USD – US Dollar</option>
+                        <option value="EUR">EUR – Euro</option>
+                        <option value="GBP">GBP – British Pound</option>
+                        <option value="JPY">JPY – Japanese Yen</option>
+                        <option value="CHF">CHF – Swiss Franc</option>
+                        <option value="CAD">CAD – Canadian Dollar</option>
+                        <option value="AUD">AUD – Australian Dollar</option>
+                        <option value="PLN">PLN – Polish Zloty</option>
+                    </InputSelect>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Purpose of Payment</label>
+                <InputText class="form-input" @bind-Value="model.Description" placeholder="e.g., Consulting services payment" />
+            </div>
+
+            <div class="alert alert-info" style="margin-top: 1.5rem;">
+                International SWIFT transfers typically take 2–5 business days depending on correspondent banks involved. Fee: $45.00 per outgoing international wire. Exchange rates are applied at the time of processing.
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top: 1rem;" disabled="@isLoading">
+                @(isLoading ? "Processing..." : "Send International Transfer – $45.00 fee")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private SwiftModel model = new();
+    private string? successMessage;
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleSubmit()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+        await Task.Delay(500);
+        successMessage = $"SWIFT transfer of {model.Amount:N2} {model.Currency} submitted to {model.RecipientName}. Estimated arrival: 2–5 business days.";
+        isLoading = false;
+    }
+
+    public class SwiftModel
+    {
+        public string FromAccount { get; set; } = "";
+        public string SwiftCode { get; set; } = "";
+        public string BankName { get; set; } = "";
+        public string Country { get; set; } = "";
+        public string RecipientName { get; set; } = "";
+        public string AccountNumber { get; set; } = "";
+        public string RecipientAddress { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Currency { get; set; } = "USD";
+        public string Description { get; set; } = "";
+    }
+}

@@ -1,0 +1,51 @@
+<nav class="sidebar">
+    <div class="sidebar-logo">
+        <div class="logo-icon">AB</div>
+        <div>
+            <div class="logo-text">American Bank</div>
+            <div class="logo-sub">Online Banking</div>
+        </div>
+    </div>
+
+    <div class="sidebar-nav">
+        <div class="nav-section-label">Main</div>
+        <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+            Dashboard
+        </NavLink>
+        <NavLink class="nav-link" href="history">
+            Transaction History
+        </NavLink>
+
+        <div class="nav-section-label">Transfers</div>
+        <NavLink class="nav-link" href="transfer/internal">
+            Internal Transfer
+        </NavLink>
+        <NavLink class="nav-link" href="transfer/ach">
+            ACH Transfer
+        </NavLink>
+        <NavLink class="nav-link" href="transfer/fednow">
+            FedNow Instant
+        </NavLink>
+        <NavLink class="nav-link" href="transfer/wire">
+            Wire Transfer
+        </NavLink>
+        <NavLink class="nav-link" href="transfer/swift">
+            SWIFT International
+        </NavLink>
+
+        <div class="nav-section-label">Account</div>
+        <NavLink class="nav-link" href="settings">
+            Settings
+        </NavLink>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-user">
+            <div class="user-avatar">JD</div>
+            <div class="user-info">
+                <div class="user-name">John Doe</div>
+                <div class="user-email">john.doe@email.com</div>
+            </div>
+        </div>
+    </div>
+</nav>

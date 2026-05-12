@@ -1,0 +1,97 @@
+@page "/transfer/fednow"
+@rendermode InteractiveServer
+
+<PageTitle>FedNow Instant Transfer – American Bank</PageTitle>
+
+<div class="fade-in transfer-page-center">
+    <div class="page-header">
+        <h1>FedNow Instant Transfer</h1>
+        <p class="page-subtitle">Real-time payment via the Federal Reserve · Settlement: Instant (24/7/365)</p>
+    </div>
+
+    <div class="card">
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">@errorMessage</div>
+        }
+
+        <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="FedNowTransfer">
+            <div class="form-group">
+                <label class="form-label">From Account</label>
+                <InputSelect class="form-select" @bind-Value="model.FromAccount">
+                    <option value="">Select source account</option>
+                    <option value="checking">Primary Checking (····4521) – $12,458.32</option>
+                    <option value="savings">Emergency Fund (····7832) – $45,230.00</option>
+                </InputSelect>
+            </div>
+
+            <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Recipient Details</h3>
+
+            <div class="form-group">
+                <label class="form-label">Recipient's Routing Number (ABA)</label>
+                <InputText class="form-input" @bind-Value="model.RoutingNumber" placeholder="9 digits" maxlength="9" />
+                <span class="form-hint">Must be a FedNow-enabled financial institution</span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Recipient's Account Number</label>
+                <InputText class="form-input" @bind-Value="model.AccountNumber" placeholder="Account number" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Recipient Name</label>
+                <InputText class="form-input" @bind-Value="model.RecipientName" placeholder="Full legal name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Amount (USD)</label>
+                <InputNumber class="form-input" @bind-Value="model.Amount" placeholder="0.00" />
+                <span class="form-hint">Maximum per transaction: $500,000.00</span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Memo (Optional)</label>
+                <InputText class="form-input" @bind-Value="model.Description" placeholder="e.g., Rent payment" />
+            </div>
+
+            <div class="alert alert-info" style="margin-top: 1.5rem;">
+                FedNow is a real-time gross settlement (RTGS) service operated by the Federal Reserve. Funds arrive in the recipient's account within seconds, available 24/7/365. Fee: $0.50 per transaction.
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top: 1rem;" disabled="@isLoading">
+                @(isLoading ? "Processing..." : "Send Instant Payment")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private FedNowModel model = new();
+    private string? successMessage;
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleSubmit()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+        await Task.Delay(500);
+        successMessage = $"FedNow payment of ${model.Amount:N2} sent instantly to {model.RecipientName}.";
+        isLoading = false;
+    }
+
+    public class FedNowModel
+    {
+        public string FromAccount { get; set; } = "";
+        public string RoutingNumber { get; set; } = "";
+        public string AccountNumber { get; set; } = "";
+        public string RecipientName { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Description { get; set; } = "";
+    }
+}

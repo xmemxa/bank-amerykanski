@@ -1,0 +1,172 @@
+@page "/employee/create-customer"
+@rendermode InteractiveServer
+
+<PageTitle>Create Customer – American Bank Employee Portal</PageTitle>
+
+<div class="fade-in transfer-page-center">
+    <div class="page-header">
+        <h1>Create New Customer</h1>
+        <p class="page-subtitle">Register a new bank customer and open their first account</p>
+    </div>
+
+    <div class="card">
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+
+            <!-- Show created account details -->
+            <div class="info-grid" style="margin-bottom: 1.5rem;">
+                <div class="info-item">
+                    <div class="info-label">Customer User ID</div>
+                    <div class="info-value mono">@model.Username</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Routing Number</div>
+                    <div class="info-value mono">123456789</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Account Number</div>
+                    <div class="info-value mono">@generatedAccountNumber</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Temporary Password</div>
+                    <div class="info-value mono">@model.TemporaryPassword</div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                Please provide the above credentials to the customer. They should change their password upon first login.
+            </div>
+
+            <button class="btn btn-primary btn-full" style="margin-top: 1rem;" @onclick="ResetForm">Create Another Customer</button>
+        }
+
+        @if (string.IsNullOrEmpty(successMessage))
+        {
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-error">@errorMessage</div>
+            }
+
+            <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="CreateCustomerForm">
+                <h3 style="margin: 0 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Personal Information</h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">First Name</label>
+                        <InputText class="form-input" @bind-Value="model.FirstName" placeholder="John" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Last Name</label>
+                        <InputText class="form-input" @bind-Value="model.LastName" placeholder="Doe" />
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Social Security Number (SSN)</label>
+                        <InputText class="form-input" @bind-Value="model.SocialSecurityNumber" placeholder="XXX-XX-XXXX" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <InputText class="form-input" @bind-Value="model.PhoneNumber" placeholder="(555) 123-4567" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Physical Address</label>
+                    <InputText class="form-input" @bind-Value="model.Address" placeholder="123 Main St, City, State, ZIP" />
+                </div>
+
+                <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Account Setup</h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Login User ID</label>
+                        <InputText class="form-input" @bind-Value="model.Username" placeholder="e.g., johndoe1" />
+                        <span class="form-hint">Used by customer to log in</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Temporary Password</label>
+                        <InputText class="form-input" @bind-Value="model.TemporaryPassword" placeholder="Minimum 8 characters" />
+                    </div>
+                </div>
+
+                <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Account Details</h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Account Type</label>
+                        <InputSelect class="form-select" @bind-Value="model.AccountType">
+                            <option value="Checking">Checking Account</option>
+                            <option value="Savings">Savings Account</option>
+                        </InputSelect>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Currency</label>
+                        <InputSelect class="form-select" @bind-Value="model.Currency">
+                            <option value="USD">USD – US Dollar</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Initial Deposit (USD)</label>
+                    <InputNumber class="form-input" @bind-Value="model.InitialDeposit" placeholder="0.00" />
+                    <span class="form-hint">Optional – amount the customer is depositing at account opening</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top: 1.5rem;" disabled="@isLoading">
+                    @(isLoading ? "Creating..." : "Create Customer & Open Account")
+                </button>
+            </EditForm>
+        }
+    </div>
+</div>
+
+@code {
+    private CreateCustomerModel model = new();
+    private string? successMessage;
+    private string? errorMessage;
+    private string generatedAccountNumber = "";
+    private bool isLoading = false;
+
+    private async Task HandleSubmit()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        // TODO: Call API /api/Employee/create-customer
+        await Task.Delay(500);
+
+        // Simulate generated account number
+        var rng = new Random();
+        generatedAccountNumber = string.Concat(Enumerable.Range(0, 10).Select(_ => rng.Next(0, 10).ToString()));
+
+        successMessage = $"Customer {model.FirstName} {model.LastName} created successfully with a {model.AccountType} account.";
+        isLoading = false;
+    }
+
+    private void ResetForm()
+    {
+        model = new();
+        successMessage = null;
+        errorMessage = null;
+        generatedAccountNumber = "";
+    }
+
+    public class CreateCustomerModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Username { get; set; } = "";
+        public string SocialSecurityNumber { get; set; } = "";
+        public string PhoneNumber { get; set; } = "";
+        public string Address { get; set; } = "";
+        public string TemporaryPassword { get; set; } = "";
+        public string AccountType { get; set; } = "Checking";
+        public string Currency { get; set; } = "USD";
+        public decimal InitialDeposit { get; set; }
+    }
+}

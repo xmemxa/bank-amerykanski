@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -26,8 +26,8 @@ namespace bank.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterDto request)
         {
-            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
-                return BadRequest("A user with this email address already exists.");
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+                return BadRequest("A user with this username already exists.");
             
             using var transaction = await _context.Database.BeginTransactionAsync();
             string uniqueAccountNumber = await GenerateUniqueUSAccountNumber();
@@ -38,7 +38,10 @@ namespace bank.Controllers
                     Id = Guid.NewGuid(),
                     FirstName = request.FirstName,
                     LastName = request.LastName,
-                    Email = request.Email,
+                    Username = request.Username,
+                    SocialSecurityNumber = request.SocialSecurityNumber,
+                    Address = request.Address,
+                    PhoneNumber = request.PhoneNumber,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                     CreatedAt = DateTime.UtcNow
                 };
@@ -79,10 +82,10 @@ namespace bank.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] UserLoginDto request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                return Unauthorized("Invalid email or password.");
+                return Unauthorized("Invalid username or password.");
             
             var token = CreateToken(user);
             return Ok(new { 
@@ -137,7 +140,7 @@ namespace bank.Controllers
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email)
+                new Claim(ClaimTypes.Name, user.Username)
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
@@ -160,14 +163,17 @@ namespace bank.Controllers
     }
     
     public class UserRegisterDto { 
-        public string Email { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string SocialSecurityNumber { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
     }
 
     public class UserLoginDto { 
-        public string Email { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
 }

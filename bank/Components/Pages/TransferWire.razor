@@ -1,0 +1,110 @@
+@page "/transfer/wire"
+@rendermode InteractiveServer
+
+<PageTitle>Wire Transfer – American Bank</PageTitle>
+
+<div class="fade-in transfer-page-center">
+    <div class="page-header">
+        <h1>Domestic Wire Transfer</h1>
+        <p class="page-subtitle">Same-day guaranteed funds transfer · Settlement: Same business day</p>
+    </div>
+
+    <div class="card">
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">@errorMessage</div>
+        }
+
+        <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="WireTransfer">
+            <div class="form-group">
+                <label class="form-label">From Account</label>
+                <InputSelect class="form-select" @bind-Value="model.FromAccount">
+                    <option value="">Select source account</option>
+                    <option value="checking">Primary Checking (····4521) – $12,458.32</option>
+                    <option value="savings">Emergency Fund (····7832) – $45,230.00</option>
+                </InputSelect>
+            </div>
+
+            <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Recipient Bank Information</h3>
+
+            <div class="form-group">
+                <label class="form-label">Receiving Bank Name</label>
+                <InputText class="form-input" @bind-Value="model.BankName" placeholder="e.g., JPMorgan Chase" />
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Routing Number (ABA)</label>
+                    <InputText class="form-input" @bind-Value="model.RoutingNumber" placeholder="9 digits" maxlength="9" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Account Number</label>
+                    <InputText class="form-input" @bind-Value="model.AccountNumber" placeholder="Account number" />
+                </div>
+            </div>
+
+            <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">Recipient Information</h3>
+
+            <div class="form-group">
+                <label class="form-label">Beneficiary Name</label>
+                <InputText class="form-input" @bind-Value="model.RecipientName" placeholder="Full legal name or business name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Beneficiary Address</label>
+                <InputText class="form-input" @bind-Value="model.RecipientAddress" placeholder="Street, City, State, ZIP" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Amount (USD)</label>
+                <InputNumber class="form-input" @bind-Value="model.Amount" placeholder="0.00" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Purpose / Reference</label>
+                <InputText class="form-input" @bind-Value="model.Description" placeholder="e.g., Property closing funds" />
+            </div>
+
+            <div class="alert alert-info" style="margin-top: 1.5rem;">
+                Wire transfers are irrevocable and processed same-day if submitted before 4:00 PM ET. Fee: $25.00 per outgoing domestic wire.
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top: 1rem;" disabled="@isLoading">
+                @(isLoading ? "Processing..." : "Send Wire Transfer – $25.00 fee")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private WireModel model = new();
+    private string? successMessage;
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleSubmit()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+        await Task.Delay(500);
+        successMessage = $"Wire transfer of ${model.Amount:N2} submitted to {model.RecipientName}. Settlement: same business day.";
+        isLoading = false;
+    }
+
+    public class WireModel
+    {
+        public string FromAccount { get; set; } = "";
+        public string BankName { get; set; } = "";
+        public string RoutingNumber { get; set; } = "";
+        public string AccountNumber { get; set; } = "";
+        public string RecipientName { get; set; } = "";
+        public string RecipientAddress { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Description { get; set; } = "";
+    }
+}

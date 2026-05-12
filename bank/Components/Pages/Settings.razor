@@ -1,0 +1,192 @@
+@page "/settings"
+@rendermode InteractiveServer
+
+<PageTitle>Settings – American Bank</PageTitle>
+
+<div class="fade-in">
+    <div class="page-header">
+        <h1>Account Settings</h1>
+        <p class="page-subtitle">Manage your profile and security preferences</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 900px;">
+        <!-- Personal Information -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Personal Information</h3>
+            </div>
+
+            @if (!string.IsNullOrEmpty(profileSuccess))
+            {
+                <div class="alert alert-success">@profileSuccess</div>
+            }
+
+            <EditForm Model="profileModel" OnValidSubmit="SaveProfile" FormName="ProfileForm">
+                <div class="form-group">
+                    <label class="form-label">First Name</label>
+                    <InputText class="form-input" @bind-Value="profileModel.FirstName" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Last Name</label>
+                    <InputText class="form-input" @bind-Value="profileModel.LastName" />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <InputText class="form-input" @bind-Value="profileModel.PhoneNumber" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Physical Address</label>
+                        <InputText class="form-input" @bind-Value="profileModel.Address" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Social Security Number</label>
+                    <InputText class="form-input" Value="***-**-1234" disabled="true" style="background-color: var(--bg-primary); cursor: not-allowed;" />
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </EditForm>
+        </div>
+
+        <!-- Security -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Security</h3>
+            </div>
+
+            @if (!string.IsNullOrEmpty(passwordSuccess))
+            {
+                <div class="alert alert-success">@passwordSuccess</div>
+            }
+            @if (!string.IsNullOrEmpty(passwordError))
+            {
+                <div class="alert alert-error">@passwordError</div>
+            }
+
+            <EditForm Model="passwordModel" OnValidSubmit="ChangePassword" FormName="PasswordForm">
+                <div class="form-group">
+                    <label class="form-label">Current Password</label>
+                    <InputText class="form-input" @bind-Value="passwordModel.CurrentPassword" type="password" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">New Password</label>
+                    <InputText class="form-input" @bind-Value="passwordModel.NewPassword" type="password" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Confirm New Password</label>
+                    <InputText class="form-input" @bind-Value="passwordModel.ConfirmPassword" type="password" />
+                </div>
+
+                <button type="submit" class="btn btn-primary">Update Password</button>
+            </EditForm>
+        </div>
+
+        <!-- Account Overview -->
+        <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-header">
+                <h3 class="card-title">Your Accounts</h3>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Account</th>
+                            <th>Type</th>
+                            <th>Routing Number</th>
+                            <th>Account Number</th>
+                            <th>Currency</th>
+                            <th>Opened</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600; color: var(--text-primary);">Primary Checking</td>
+                            <td>Checking (Standard)</td>
+                            <td style="font-family: monospace;">123456789</td>
+                            <td style="font-family: monospace;">0012344521</td>
+                            <td>USD</td>
+                            <td>Jan 15, 2024</td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600; color: var(--text-primary);">Emergency Fund</td>
+                            <td>Savings (Standard)</td>
+                            <td style="font-family: monospace;">123456789</td>
+                            <td style="font-family: monospace;">0012347832</td>
+                            <td>USD</td>
+                            <td>Feb 3, 2024</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="card" style="grid-column: 1 / -1; border-color: rgba(239, 68, 68, 0.2);">
+            <div class="card-header">
+                <h3 class="card-title" style="color: var(--accent-red);">Session</h3>
+            </div>
+            <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
+                Sign out of your American Bank account on this device.
+            </p>
+            <button class="btn btn-danger" @onclick="Logout">Sign Out</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ProfileModel profileModel = new() { FirstName = "John", LastName = "Doe", PhoneNumber = "(555) 123-4567", Address = "123 Main St, NY" };
+    private PasswordModel passwordModel = new();
+    private string? profileSuccess;
+    private string? passwordSuccess;
+    private string? passwordError;
+
+    private async Task SaveProfile()
+    {
+        // TODO: Call API
+        await Task.Delay(300);
+        profileSuccess = "Profile updated successfully.";
+    }
+
+    private async Task ChangePassword()
+    {
+        passwordError = null;
+        passwordSuccess = null;
+
+        if (passwordModel.NewPassword != passwordModel.ConfirmPassword)
+        {
+            passwordError = "New passwords do not match.";
+            return;
+        }
+
+        // TODO: Call API
+        await Task.Delay(300);
+        passwordSuccess = "Password changed successfully.";
+    }
+
+    private void Logout()
+    {
+        // TODO: Call API /api/Auth/logout and clear token
+    }
+
+    public class ProfileModel
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string PhoneNumber { get; set; } = "";
+        public string Address { get; set; } = "";
+    }
+
+    public class PasswordModel
+    {
+        public string CurrentPassword { get; set; } = "";
+        public string NewPassword { get; set; } = "";
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

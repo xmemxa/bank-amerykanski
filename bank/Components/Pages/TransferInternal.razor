@@ -1,0 +1,86 @@
+@page "/transfer/internal"
+@rendermode InteractiveServer
+
+<PageTitle>Internal Transfer – American Bank</PageTitle>
+
+<div class="fade-in transfer-page-center">
+    <div class="page-header">
+        <h1>Internal Transfer</h1>
+        <p class="page-subtitle">Move money between your American Bank accounts</p>
+    </div>
+
+    <div class="card">
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success">@successMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-error">@errorMessage</div>
+        }
+
+        <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="InternalTransfer">
+            <div class="form-group">
+                <label class="form-label">From Account</label>
+                <InputSelect class="form-select" @bind-Value="model.FromAccount">
+                    <option value="">Select source account</option>
+                    <option value="checking">Primary Checking (····4521) – $12,458.32</option>
+                    <option value="savings">Emergency Fund (····7832) – $45,230.00</option>
+                </InputSelect>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">To Account</label>
+                <InputSelect class="form-select" @bind-Value="model.ToAccount">
+                    <option value="">Select destination account</option>
+                    <option value="checking">Primary Checking (····4521) – $12,458.32</option>
+                    <option value="savings">Emergency Fund (····7832) – $45,230.00</option>
+                </InputSelect>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Amount (USD)</label>
+                <InputNumber class="form-input" @bind-Value="model.Amount" placeholder="0.00" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Memo (Optional)</label>
+                <InputText class="form-input" @bind-Value="model.Description" placeholder="e.g., Monthly savings" />
+            </div>
+
+            <div class="alert alert-info" style="margin-top: 1.5rem;">
+                Internal transfers are processed instantly with no fees.
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top: 1rem;" disabled="@isLoading">
+                @(isLoading ? "Processing..." : "Transfer Funds")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private TransferModel model = new();
+    private string? successMessage;
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleSubmit()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+        // TODO: Call API
+        await Task.Delay(500);
+        successMessage = $"Successfully transferred ${model.Amount:N2} between accounts.";
+        isLoading = false;
+    }
+
+    public class TransferModel
+    {
+        public string FromAccount { get; set; } = "";
+        public string ToAccount { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Description { get; set; } = "";
+    }
+}

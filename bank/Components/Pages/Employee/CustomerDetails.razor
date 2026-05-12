@@ -1,0 +1,126 @@
+@page "/employee/customer/{Id}"
+@rendermode InteractiveServer
+
+<PageTitle>Customer Details – American Bank Employee Portal</PageTitle>
+
+<div class="fade-in">
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <h1>John Doe</h1>
+            <p class="page-subtitle">Customer since January 15, 2024</p>
+        </div>
+        <div>
+            <a href="/employee/customer/@Id/edit" class="btn btn-secondary">Edit Customer</a>
+            <button class="btn btn-danger" style="margin-left: 0.5rem;">Deactivate</button>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-item">
+            <div class="info-label">User ID</div>
+            <div class="info-value">johndoe1</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Phone Number</div>
+            <div class="info-value">(555) 123-4567</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">SSN</div>
+            <div class="info-value mono">***-**-1234</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Address</div>
+            <div class="info-value">123 Main St, NY</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Customer ID</div>
+            <div class="info-value mono">CUST-8492-710X</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Total Balance</div>
+            <div class="info-value" style="color: var(--accent-blue); font-size: 1.25rem;">$57,688.32</div>
+        </div>
+    </div>
+
+    <!-- Accounts -->
+    <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+            <h3 class="card-title">Accounts (2)</h3>
+            <button class="btn btn-primary">Open New Account</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Account Name</th>
+                        <th>Type</th>
+                        <th>Account Number</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Balance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">Primary Checking</td>
+                        <td>Checking</td>
+                        <td class="mono">0012344521</td>
+                        <td><span class="badge badge-completed">Active</span></td>
+                        <td style="text-align: right;" class="amount">$12,458.32</td>
+                        <td><button class="btn btn-ghost">Statements</button></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">Emergency Fund</td>
+                        <td>Savings</td>
+                        <td class="mono">0012347832</td>
+                        <td><span class="badge badge-completed">Active</span></td>
+                        <td style="text-align: right;" class="amount">$45,230.00</td>
+                        <td><button class="btn btn-ghost">Statements</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Recent Activity</h3>
+            <button class="btn btn-ghost">View All</button>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Account</th>
+                        <th>Type</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>May 12, 2026</td>
+                        <td>Payroll Deposit – Acme Corp</td>
+                        <td>Checking (····4521)</td>
+                        <td><span class="badge badge-info">ACH</span></td>
+                        <td style="text-align: right;" class="amount amount-positive">+$3,450.00</td>
+                    </tr>
+                    <tr>
+                        <td>May 11, 2026</td>
+                        <td>Transfer to Savings</td>
+                        <td>Checking (····4521)</td>
+                        <td><span class="badge badge-info">Internal</span></td>
+                        <td style="text-align: right;" class="amount amount-negative">-$500.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+}

@@ -1,0 +1,73 @@
+@page "/login"
+@page "/"
+@layout bank.Components.Layout.AuthLayout
+@rendermode InteractiveServer
+
+<PageTitle>Sign In – American Bank</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-container fade-in">
+        <div class="auth-logo">
+            <div class="logo-icon-lg">AB</div>
+            <h1>American Bank</h1>
+            <p>Sign in to your account</p>
+        </div>
+
+        <div class="auth-card">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-error">@errorMessage</div>
+            }
+
+            <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
+                <div class="form-group">
+                    <label class="form-label">User ID</label>
+                    <InputText class="form-input" @bind-Value="loginModel.Username" placeholder="Enter your User ID" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <InputText class="form-input" @bind-Value="loginModel.Password" type="password" placeholder="Enter your password" />
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-full" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span>Signing in...</span>
+                    }
+                    else
+                    {
+                        <span>Sign In</span>
+                    }
+                </button>
+            </EditForm>
+        </div>
+
+        <div class="auth-footer">
+            <p>FDIC Insured · Equal Housing Lender</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginModel loginModel = new();
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+        // TODO: Call API /api/Auth/login
+        // If employee → redirect to /employee/dashboard
+        // If customer → redirect to /dashboard
+        await Task.Delay(500);
+        isLoading = false;
+    }
+
+    public class LoginModel
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

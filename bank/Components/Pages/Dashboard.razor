@@ -1,0 +1,111 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard – American Bank</PageTitle>
+
+<div class="fade-in">
+    <div class="page-header">
+        <h1>Good evening, John</h1>
+        <p class="page-subtitle">Here's your financial overview</p>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <a href="/transfer/internal" class="quick-action-btn">
+            Transfer
+        </a>
+        <a href="/transfer/ach" class="quick-action-btn">
+            Send Money
+        </a>
+        <a href="/transfer/fednow" class="quick-action-btn">
+            Instant Pay
+        </a>
+        <a href="/transfer/swift" class="quick-action-btn">
+            International
+        </a>
+        <a href="/history" class="quick-action-btn">
+            Statements
+        </a>
+    </div>
+
+    <!-- Account Cards -->
+    <h2 style="margin-bottom: 1rem;">Your Accounts</h2>
+    <div class="accounts-grid">
+        <a href="/account/1" class="account-card" style="text-decoration: none;">
+            <div class="account-type">Checking Account</div>
+            <div class="account-name">Primary Checking</div>
+            <div class="account-balance">
+                <span class="currency">$</span>12,458.32
+            </div>
+            <div class="account-number">Routing: 123456789 · Acct: ····4521</div>
+        </a>
+
+        <a href="/account/2" class="account-card" style="text-decoration: none;">
+            <div class="account-type">Savings Account</div>
+            <div class="account-name">Emergency Fund</div>
+            <div class="account-balance">
+                <span class="currency">$</span>45,230.00
+            </div>
+            <div class="account-number">Routing: 123456789 · Acct: ····7832</div>
+        </a>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Recent Transactions</h3>
+            <a href="/history" class="btn btn-ghost">View All</a>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>May 12, 2026</td>
+                        <td>Payroll Deposit – Acme Corp</td>
+                        <td><span class="badge badge-info">ACH</span></td>
+                        <td><span class="badge badge-completed">Completed</span></td>
+                        <td style="text-align: right;" class="amount amount-positive">+$3,450.00</td>
+                    </tr>
+                    <tr>
+                        <td>May 11, 2026</td>
+                        <td>Transfer to Savings</td>
+                        <td><span class="badge badge-info">Internal</span></td>
+                        <td><span class="badge badge-completed">Completed</span></td>
+                        <td style="text-align: right;" class="amount amount-negative">-$500.00</td>
+                    </tr>
+                    <tr>
+                        <td>May 10, 2026</td>
+                        <td>Wire to ABC Realty</td>
+                        <td><span class="badge badge-info">Wire</span></td>
+                        <td><span class="badge badge-completed">Completed</span></td>
+                        <td style="text-align: right;" class="amount amount-negative">-$2,100.00</td>
+                    </tr>
+                    <tr>
+                        <td>May 9, 2026</td>
+                        <td>FedNow from Jane Smith</td>
+                        <td><span class="badge badge-info">FedNow</span></td>
+                        <td><span class="badge badge-pending">Pending</span></td>
+                        <td style="text-align: right;" class="amount amount-positive">+$250.00</td>
+                    </tr>
+                    <tr>
+                        <td>May 8, 2026</td>
+                        <td>SWIFT – London Office</td>
+                        <td><span class="badge badge-info">SWIFT</span></td>
+                        <td><span class="badge badge-completed">Completed</span></td>
+                        <td style="text-align: right;" class="amount amount-negative">-$5,000.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

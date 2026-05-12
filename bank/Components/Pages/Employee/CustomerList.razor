@@ -1,0 +1,138 @@
+@page "/employee/customers"
+@rendermode InteractiveServer
+
+<PageTitle>Customer List – American Bank Employee Portal</PageTitle>
+
+<div class="fade-in">
+    <div class="page-header">
+        <h1>Customer List</h1>
+        <p class="page-subtitle">Manage and search all bank customers</p>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="filter-bar">
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 250px;">
+            <label class="form-label">Search</label>
+            <InputText class="form-input" @bind-Value="searchQuery" placeholder="Search by name, SSN, or phone number..." style="max-width: 100%;" />
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Account Type</label>
+            <select class="form-select" @bind="filterType">
+                <option value="">All Types</option>
+                <option value="Checking">Checking</option>
+                <option value="Savings">Savings</option>
+                <option value="Junior">Junior</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0; display: flex; align-items: flex-end;">
+            <button class="btn btn-primary" @onclick="ApplySearch">Search</button>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Results (8 customers)</h3>
+            <a href="/employee/create-customer" class="btn btn-primary">+ New Customer</a>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Phone / SSN</th>
+                        <th>Accounts</th>
+                        <th>Total Balance</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">John Doe</td>
+                        <td>(555) 123-4567<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-1234</span></td>
+                        <td>
+                            <span class="badge badge-info">Checking</span>
+                            <span class="badge badge-info">Savings</span>
+                        </td>
+                        <td class="amount">$57,688.32</td>
+                        <td>Jan 15, 2024</td>
+                        <td>
+                            <a href="/employee/customer/1" class="btn btn-ghost">View</a>
+                            <a href="/employee/customer/1/edit" class="btn btn-ghost">Edit</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">Sarah Johnson</td>
+                        <td>(555) 987-6543<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-5678</span></td>
+                        <td><span class="badge badge-info">Checking</span></td>
+                        <td class="amount">$3,240.50</td>
+                        <td>May 12, 2026</td>
+                        <td>
+                            <a href="/employee/customer/2" class="btn btn-ghost">View</a>
+                            <a href="/employee/customer/2/edit" class="btn btn-ghost">Edit</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">Michael Chen</td>
+                        <td>(555) 246-8101<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-9012</span></td>
+                        <td><span class="badge badge-info">Savings</span></td>
+                        <td class="amount">$15,000.00</td>
+                        <td>May 11, 2026</td>
+                        <td>
+                            <a href="/employee/customer/3" class="btn btn-ghost">View</a>
+                            <a href="/employee/customer/3/edit" class="btn btn-ghost">Edit</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">Emily Davis</td>
+                        <td>(555) 369-2580<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-3456</span></td>
+                        <td><span class="badge badge-info">Checking</span></td>
+                        <td class="amount">$8,920.75</td>
+                        <td>May 10, 2026</td>
+                        <td>
+                            <a href="/employee/customer/4" class="btn btn-ghost">View</a>
+                            <a href="/employee/customer/4/edit" class="btn btn-ghost">Edit</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">James Wilson</td>
+                        <td>(555) 159-7530<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-7890</span></td>
+                        <td>
+                            <span class="badge badge-info">Checking</span>
+                            <span class="badge badge-info">Savings</span>
+                        </td>
+                        <td class="amount">$42,100.00</td>
+                        <td>May 9, 2026</td>
+                        <td>
+                            <a href="/employee/customer/5" class="btn btn-ghost">View</a>
+                            <a href="/employee/customer/5/edit" class="btn btn-ghost">Edit</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: 600; color: var(--text-primary);">Lisa Martinez</td>
+                        <td>(555) 753-1590<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-2468</span></td>
+                        <td><span class="badge badge-info">Checking</span></td>
+                        <td class="amount">$1,450.30</td>
+                        <td>Apr 28, 2026</td>
+                        <td>
+                            <a href="/employee/customer/6" class="btn btn-ghost">View</a>
+                            <a href="/employee/customer/6/edit" class="btn btn-ghost">Edit</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchQuery = "";
+    private string filterType = "";
+
+    private void ApplySearch()
+    {
+        // TODO: Call API with search filters
+    }
+}

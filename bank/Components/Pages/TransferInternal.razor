@@ -1,4 +1,8 @@
 @page "/transfer/internal"
+@using System.ComponentModel.DataAnnotations
+@using bank.Models
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
 <PageTitle>Internal Transfer – American Bank</PageTitle>
@@ -20,27 +24,24 @@
         }
 
         <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="InternalTransfer">
+            <DataAnnotationsValidator />
+            
             <div class="form-group">
-                <label class="form-label">From Account</label>
-                <InputSelect class="form-select" @bind-Value="model.FromAccount">
-                    <option value="">Select source account</option>
-                    <option value="checking">Primary Checking (····4521) – $12,458.32</option>
-                    <option value="savings">Emergency Fund (····7832) – $45,230.00</option>
-                </InputSelect>
+                <label class="form-label">From Account (10 digits)</label>
+                <InputText class="form-input" @bind-Value="model.FromAccount" placeholder="e.g. 1234567890" maxlength="10" />
+                <ValidationMessage For="@(() => model.FromAccount)" class="text-danger" />
             </div>
 
             <div class="form-group">
-                <label class="form-label">To Account</label>
-                <InputSelect class="form-select" @bind-Value="model.ToAccount">
-                    <option value="">Select destination account</option>
-                    <option value="checking">Primary Checking (····4521) – $12,458.32</option>
-                    <option value="savings">Emergency Fund (····7832) – $45,230.00</option>
-                </InputSelect>
+                <label class="form-label">To Account (10 digits)</label>
+                <InputText class="form-input" @bind-Value="model.ToAccount" placeholder="e.g. 0987654321" maxlength="10" />
+                <ValidationMessage For="@(() => model.ToAccount)" class="text-danger" />
             </div>
 
             <div class="form-group">
                 <label class="form-label">Amount (USD)</label>
                 <InputNumber class="form-input" @bind-Value="model.Amount" placeholder="0.00" />
+                <ValidationMessage For="@(() => model.Amount)" class="text-danger" />
             </div>
 
             <div class="form-group">
@@ -60,7 +61,7 @@
 </div>
 
 @code {
-    private TransferModel model = new();
+    private TransferRequestDto model = new();
     private string? successMessage;
     private string? errorMessage;
     private bool isLoading = false;
@@ -70,17 +71,52 @@
         isLoading = true;
         errorMessage = null;
         successMessage = null;
-        // TODO: Call API
-        await Task.Delay(500);
-        successMessage = $"Successfully transferred ${model.Amount:N2} between accounts.";
-        isLoading = false;
+        
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            
+            var response = await client.PostAsJsonAsync("api/transaction/transfer", model);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<TransferResult>();
+                successMessage = result?.Message ?? $"Successfully transferred ${model.Amount:N2} between accounts.";
+                model = new TransferRequestDto(); 
+            }
+            else
+            {
+                try 
+                {
+                    var errorResult = await response.Content.ReadFromJsonAsync<ErrorResult>();
+                    errorMessage = errorResult?.Message ?? "An error occurred during transfer.";
+                } 
+                catch 
+                {
+                    errorMessage = $"Error {response.StatusCode}: Unable to process the transfer.";
+                }
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "A network error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
     }
 
-    public class TransferModel
+    private class TransferResult
     {
-        public string FromAccount { get; set; } = "";
-        public string ToAccount { get; set; } = "";
-        public decimal Amount { get; set; }
-        public string Description { get; set; } = "";
+        public string? Message { get; set; }
+        public decimal NewBalance { get; set; }
+    }
+    
+    private class ErrorResult
+    {
+        public string? Message { get; set; }
     }
 }

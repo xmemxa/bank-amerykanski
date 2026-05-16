@@ -67,6 +67,8 @@ builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddHttpClient();
+
 var app = builder.Build();
 
 app.UseStaticFiles();
@@ -86,6 +88,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<BankDbContext>();
     dbContext.Database.Migrate();
+    DbSeeder.Seed(dbContext);
 }
 
 app.Run();

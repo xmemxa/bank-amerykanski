@@ -5,6 +5,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
 using bank.Components;
+using bank.Services;
+using bank.Providers;
+using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +45,9 @@ builder.Services.AddDbContext<BankDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var jwtKey = builder.Configuration["JWT_KEY"] ?? "TajnyKluczBanku1234567890123456";
-var key = Encoding.ASCII.GetBytes(jwtKey);
+var key = Encoding.UTF8.GetBytes(jwtKey);
+
+System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 builder.Services.AddAuthentication(x =>
     {
@@ -53,12 +58,14 @@ builder.Services.AddAuthentication(x =>
     {
         x.RequireHttpsMetadata = false;
         x.SaveToken = true;
+        x.MapInboundClaims = false;
         x.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateIssuer = false,
-            ValidateAudience = false
+            ValidateAudience = false,
+            RoleClaimType = "role"
         };
     });
 
@@ -67,7 +74,17 @@ builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
+
+// Konfiguracja HttpClient dla AuthService z dynamicznym BaseAddress
 builder.Services.AddHttpClient();
+builder.Services.AddScoped(sp => 
+{
+    var navManager = sp.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+    return new HttpClient { BaseAddress = new Uri(navManager.BaseUri) };
+});
+builder.Services.AddScoped<AuthService>();
 
 var app = builder.Build();
 

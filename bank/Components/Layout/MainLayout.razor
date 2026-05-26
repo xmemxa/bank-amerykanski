@@ -1,24 +1,33 @@
 @inherits LayoutComponentBase
 @inject NavigationManager Navigation
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="page-layout">
-    @if (IsEmployeeRoute())
-    {
-        <EmployeeNavMenu />
-    }
-    else
-    {
-        <NavMenu />
-    }
+    <AuthorizeView Roles="Employee">
+        <Authorized>
+            <EmployeeNavMenu />
+        </Authorized>
+        <NotAuthorized>
+            <NavMenu />
+        </NotAuthorized>
+    </AuthorizeView>
+
     <main class="main-content">
         @Body
     </main>
 </div>
 
 @code {
-    private bool IsEmployeeRoute()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var uri = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return uri.StartsWith("employee", StringComparison.OrdinalIgnoreCase);
+        if (firstRender)
+        {
+            if (AuthStateProvider is bank.Providers.CustomAuthStateProvider customProvider)
+            {
+                await customProvider.InitializeAsync();
+            }
+        }
     }
+
+
 }

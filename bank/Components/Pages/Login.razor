@@ -1,7 +1,11 @@
 @page "/login"
 @page "/"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 @layout bank.Components.Layout.AuthLayout
 @rendermode InteractiveServer
+@inject bank.Services.AuthService AuthService
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
 
 <PageTitle>Sign In – American Bank</PageTitle>
 
@@ -18,29 +22,56 @@
             {
                 <div class="alert alert-error">@errorMessage</div>
             }
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success">@successMessage</div>
+            }
 
-            <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
-                <div class="form-group">
-                    <label class="form-label">User ID</label>
-                    <InputText class="form-input" @bind-Value="loginModel.Username" placeholder="Enter your User ID" />
-                </div>
+            @if (currentStep == 1)
+            {
+                <EditForm Model="loginModel" OnValidSubmit="HandleLoginStep1" FormName="LoginForm">
+                    <div class="form-group">
+                        <label class="form-label">User ID</label>
+                        <InputText class="form-input" @bind-Value="loginModel.Username" placeholder="Enter your User ID" />
+                    </div>
 
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <InputText class="form-input" @bind-Value="loginModel.Password" type="password" placeholder="Enter your password" />
-                </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <InputText class="form-input" @bind-Value="loginModel.Password" type="password" placeholder="Enter your password" />
+                    </div>
 
-                <button type="submit" class="btn btn-primary btn-lg btn-full" disabled="@isLoading">
-                    @if (isLoading)
-                    {
-                        <span>Signing in...</span>
-                    }
-                    else
-                    {
-                        <span>Sign In</span>
-                    }
-                </button>
-            </EditForm>
+                    <button type="submit" class="btn btn-primary btn-lg btn-full" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span>Signing in...</span>
+                        }
+                        else
+                        {
+                            <span>Sign In</span>
+                        }
+                    </button>
+                </EditForm>
+            }
+            else if (currentStep == 2)
+            {
+                <EditForm Model="verifyModel" OnValidSubmit="HandleVerify2FA" FormName="VerifyForm">
+                    <div class="form-group">
+                        <label class="form-label">2FA Code</label>
+                        <InputText class="form-input" @bind-Value="verifyModel.Code" placeholder="Enter the 6-digit code" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-full" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span>Verifying...</span>
+                        }
+                        else
+                        {
+                            <span>Verify Code</span>
+                        }
+                    </button>
+                </EditForm>
+            }
         </div>
 
         <div class="auth-footer">
@@ -50,18 +81,69 @@
 </div>
 
 @code {
+    private int currentStep = 1;
     private LoginModel loginModel = new();
+    private VerifyModel verifyModel = new();
     private string? errorMessage;
+    private string? successMessage;
     private bool isLoading = false;
 
-    private async Task HandleLogin()
+    private async Task HandleLoginStep1()
     {
         isLoading = true;
         errorMessage = null;
-        // TODO: Call API /api/Auth/login
-        // If employee → redirect to /employee/dashboard
-        // If customer → redirect to /dashboard
-        await Task.Delay(500);
+        successMessage = null;
+
+        var result = await AuthService.LoginStep1Async(loginModel.Username, loginModel.Password);
+        
+        if (result.Success && result.Requires2FA)
+        {
+            verifyModel.Username = loginModel.Username;
+            currentStep = 2;
+            successMessage = "A verification code has been sent to your email.";
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage ?? "Invalid login attempt.";
+        }
+
+        isLoading = false;
+    }
+
+    private async Task HandleVerify2FA()
+    {
+        isLoading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        var result = await AuthService.Verify2FaAsync(verifyModel.Username, verifyModel.Code);
+
+        if (result.Success && !string.IsNullOrEmpty(result.Token))
+        {
+            if (AuthStateProvider is bank.Providers.CustomAuthStateProvider customProvider)
+            {
+                await customProvider.MarkUserAsAuthenticated(result.Token);
+            }
+            // Wait for auth state to update before navigating
+            await Task.Delay(100);
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            bool isEmployee = authState.User.IsInRole("Employee") || authState.User.Claims.Any(c => c.Value == "Employee");
+            
+            if (isEmployee)
+            {
+                NavigationManager.NavigateTo("/employee/dashboard");
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/dashboard");
+            }
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage ?? "Invalid verification code.";
+        }
+
         isLoading = false;
     }
 
@@ -69,5 +151,11 @@
     {
         public string Username { get; set; } = "";
         public string Password { get; set; } = "";
+    }
+
+    public class VerifyModel
+    {
+        public string Username { get; set; } = "";
+        public string Code { get; set; } = "";
     }
 }

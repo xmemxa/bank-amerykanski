@@ -140,6 +140,9 @@
     </div>
 </div>
 
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
 @code {
     private ProfileModel profileModel = new() { FirstName = "John", LastName = "Doe", PhoneNumber = "(555) 123-4567", Address = "123 Main St, NY" };
     private PasswordModel passwordModel = new();
@@ -170,9 +173,15 @@
         passwordSuccess = "Password changed successfully.";
     }
 
-    private void Logout()
+    private async Task Logout()
     {
-        // TODO: Call API /api/Auth/logout and clear token
+        if (AuthStateProvider is bank.Providers.CustomAuthStateProvider customProvider)
+        {
+            await customProvider.MarkUserAsLoggedOut();
+            // Wait for JS interop to properly delete the sessionStorage cookie before forcing a page reload
+            await Task.Delay(200);
+        }
+        NavigationManager.NavigateTo("/login", forceLoad: true);
     }
 
     public class ProfileModel

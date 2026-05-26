@@ -40,12 +40,42 @@
     </div>
 
     <div class="sidebar-footer">
-        <div class="sidebar-user">
-            <div class="user-avatar">JD</div>
-            <div class="user-info">
-                <div class="user-name">John Doe</div>
-                <div class="user-email">john.doe@email.com</div>
-            </div>
-        </div>
+        <AuthorizeView>
+            <Authorized>
+                <div class="sidebar-user">
+                    <div class="user-avatar">@GetInitials(context.User)</div>
+                    <div class="user-info">
+                        <div class="user-name">@GetName(context.User)</div>
+                        <div class="user-email">@GetEmail(context.User)</div>
+                    </div>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </div>
 </nav>
+
+@code {
+    private string GetName(System.Security.Claims.ClaimsPrincipal user)
+    {
+        var firstName = user.FindFirst("firstName")?.Value ?? "Customer";
+        var lastName = user.FindFirst("lastName")?.Value ?? "";
+        return $"{firstName} {lastName}".Trim();
+    }
+
+    private string GetEmail(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user.FindFirst("email")?.Value ?? "customer@email.com";
+    }
+
+    private string GetInitials(System.Security.Claims.ClaimsPrincipal user)
+    {
+        var firstName = user.FindFirst("firstName")?.Value ?? "C";
+        var lastName = user.FindFirst("lastName")?.Value ?? "S";
+        
+        string initials = "";
+        if (!string.IsNullOrEmpty(firstName)) initials += firstName[0];
+        if (!string.IsNullOrEmpty(lastName)) initials += lastName[0];
+        
+        return string.IsNullOrEmpty(initials) ? "US" : initials.ToUpper();
+    }
+}

@@ -56,6 +56,14 @@ namespace bank.Data
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.SocialSecurityNumber)
                 .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.PhoneNumber)
+                .IsUnique();
         }
     }
 }

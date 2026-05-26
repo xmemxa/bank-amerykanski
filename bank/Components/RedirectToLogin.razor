@@ -1,0 +1,11 @@
+@inject NavigationManager NavigationManager
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            NavigationManager.NavigateTo("/login", forceLoad: true);
+        }
+    }
+}

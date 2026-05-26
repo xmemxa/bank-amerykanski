@@ -31,7 +31,7 @@ namespace bank.Controllers
             if (request.FromAccount == request.ToAccount)
                 return BadRequest(new { Message = "Source and destination accounts cannot be the same." });
 
-            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdStr = User.FindFirst("id")?.Value;
             if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
                 return Unauthorized(new { Message = "Invalid user token." });
 

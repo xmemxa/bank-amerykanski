@@ -3,6 +3,9 @@
 @using bank.Models
 @inject IHttpClientFactory ClientFactory
 @inject NavigationManager NavigationManager
+@inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedSessionStorage SessionStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IServiceProvider ServiceProvider
 @rendermode InteractiveServer
 
 <PageTitle>Internal Transfer – American Bank</PageTitle>
@@ -27,8 +30,20 @@
             <DataAnnotationsValidator />
             
             <div class="form-group">
-                <label class="form-label">From Account (10 digits)</label>
-                <InputText class="form-input" @bind-Value="model.FromAccount" placeholder="e.g. 1234567890" maxlength="10" />
+                <label class="form-label">From Account</label>
+                <InputSelect class="form-input" @bind-Value="model.FromAccount">
+                    @if (!myAccounts.Any())
+                    {
+                        <option value="">Loading accounts...</option>
+                    }
+                    else
+                    {
+                        @foreach (var acc in myAccounts)
+                        {
+                            <option value="@acc.AccountNumber">@acc.AccountType - @acc.AccountNumber (Balance: $@acc.Balance.ToString("N2"))</option>
+                        }
+                    }
+                </InputSelect>
                 <ValidationMessage For="@(() => model.FromAccount)" class="text-danger" />
             </div>
 
@@ -77,6 +92,17 @@
             var client = ClientFactory.CreateClient();
             client.BaseAddress = new Uri(NavigationManager.BaseUri);
             
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+            else
+            {
+                errorMessage = "Authentication token missing. Please log in again.";
+                return;
+            }
+            
             var response = await client.PostAsJsonAsync("api/transaction/transfer", model);
             
             if (response.IsSuccessStatusCode)
@@ -106,6 +132,29 @@
         {
             isLoading = false;
             StateHasChanged();
+        }
+    }
+
+    private List<bank.Models.Account> myAccounts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var userIdStr = user.FindFirst("id")?.Value;
+
+        if (!string.IsNullOrEmpty(userIdStr) && Guid.TryParse(userIdStr, out var userId))
+        {
+            using var scope = ServiceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<bank.Data.BankDbContext>();
+            myAccounts = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                System.Linq.Queryable.Where(dbContext.Accounts, a => a.UserId == userId)
+            );
+
+            if (myAccounts.Any() && string.IsNullOrEmpty(model.FromAccount))
+            {
+                model.FromAccount = myAccounts.First().AccountNumber;
+            }
         }
     }
 

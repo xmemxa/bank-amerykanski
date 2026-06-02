@@ -1,5 +1,6 @@
 @page "/transfer/swift"
 @rendermode InteractiveServer
+@using System.Text.Json
 
 <PageTitle>SWIFT International Transfer – American Bank</PageTitle>
 
@@ -120,14 +121,63 @@
     private string? errorMessage;
     private bool isLoading = false;
 
+    @inject IHttpClientFactory ClientFactory
+    @inject NavigationManager NavigationManager
+    @inject Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage.ProtectedSessionStorage SessionStorage
+
     private async Task HandleSubmit()
     {
         isLoading = true;
         errorMessage = null;
         successMessage = null;
-        await Task.Delay(500);
-        successMessage = $"SWIFT transfer of {model.Amount:N2} {model.Currency} submitted to {model.RecipientName}. Estimated arrival: 2–5 business days.";
-        isLoading = false;
+        
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+
+            var request = new bank.Models.TransferRequestDto
+            {
+                FromAccount = model.FromAccount,
+                Amount = model.Amount,
+                Description = model.Description,
+                TransactionType = "SWIFT",
+                TargetRoutingNumber = model.SwiftCode,
+                ExternalAccountNumber = model.AccountNumber,
+                SwiftCode = model.SwiftCode,
+                BankName = model.BankName,
+                Country = model.Country,
+                RecipientName = model.RecipientName,
+                RecipientAddress = model.RecipientAddress
+            };
+
+            var response = await client.PostAsJsonAsync("api/transaction/transfer", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = $"SWIFT transfer of {model.Amount:N2} {model.Currency} submitted to {model.RecipientName}. Estimated arrival: 2–5 business days.";
+                model = new SwiftModel(); // clear form
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<JsonElement>();
+                errorMessage = error.TryGetProperty("message", out var msg) ? msg.GetString() : "Transfer failed. Please check your details.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "A network error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     public class SwiftModel

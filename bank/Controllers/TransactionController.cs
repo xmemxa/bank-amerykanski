@@ -44,6 +44,7 @@ namespace bank.Controllers
 
             decimal feeAmount = 0;
             if (request.TransactionType == "FedNow") feeAmount = 0.50m;
+            else if (request.TransactionType == "SWIFT") feeAmount = 45.00m;
 
             if (sourceAccount.Balance < (request.Amount + feeAmount))
                 return BadRequest(new { Message = "Insufficient funds in the source account including fees." });
@@ -181,8 +182,19 @@ namespace bank.Controllers
 
                         if (request.TransactionType == "FedNow")
                             success = await fedNowService.SendFedNowTransferAsync(xmlPayload);
-                        else
+                        else if (request.TransactionType == "RTP")
                             success = await rtpService.SendRtpTransferAsync(xmlPayload);
+                    }
+                    else if (request.TransactionType == "SWIFT")
+                    {
+                        // Injected locally from HttpContext to avoid breaking method signature if user calls without it
+                        var swiftService = HttpContext.RequestServices.GetRequiredService<bank.Services.ExternalPayments.SwiftService>();
+                        var swiftResult = await swiftService.SendSwiftTransferAsync(request, "PLN");
+                        
+                        if (!swiftResult.Success)
+                            return BadRequest(new { Message = $"SWIFT rejected: {swiftResult.ErrorMessage}" });
+                            
+                        success = true;
                     }
                     else
                     {

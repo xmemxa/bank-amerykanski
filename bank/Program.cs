@@ -86,6 +86,9 @@ builder.Services.AddScoped(sp =>
 });
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<bank.Services.ExternalPayments.AchService>();
+builder.Services.AddHttpClient<bank.Services.ExternalPayments.RtpRegistrationService>();
+builder.Services.AddHttpClient<bank.Services.ExternalPayments.RtpService>();
+builder.Services.AddHttpClient<bank.Services.ExternalPayments.SwiftService>();
 builder.Services.AddScoped<bank.Services.ExternalPayments.FedNowService>();
 builder.Services.AddScoped<bank.Services.ExternalPayments.RtpService>();
 builder.Services.AddHostedService<bank.Services.ExternalPayments.RtpRegistrationService>();

@@ -1,4 +1,9 @@
 @page "/history"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
+@inject ProtectedSessionStorage SessionStorage
 @rendermode InteractiveServer
 
 <PageTitle>Transaction History – American Bank</PageTitle>
@@ -28,6 +33,7 @@
                 <option value="FedNow">FedNow</option>
                 <option value="Wire">Wire</option>
                 <option value="SWIFT">SWIFT</option>
+                <option value="RTP">RTP</option>
             </select>
         </div>
         <div class="form-group" style="margin-bottom: 0;">
@@ -47,89 +53,68 @@
     <!-- Results -->
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Results (12 transactions)</h3>
+            <h3 class="card-title">Results (@filteredTransactions.Count transactions)</h3>
             <button class="btn btn-ghost">Export CSV ↓</button>
         </div>
 
         <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th>Account</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th style="text-align: right;">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>May 12, 2026</td>
-                        <td>Payroll Deposit – Acme Corp</td>
-                        <td>Checking ••••4521</td>
-                        <td><span class="badge badge-info">ACH</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-positive">+$3,450.00</td>
-                    </tr>
-                    <tr>
-                        <td>May 11, 2026</td>
-                        <td>Transfer to Savings</td>
-                        <td>Checking ••••4521</td>
-                        <td><span class="badge badge-info">Internal</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-negative">−$500.00</td>
-                    </tr>
-                    <tr>
-                        <td>May 11, 2026</td>
-                        <td>Transfer from Checking</td>
-                        <td>Savings ••••7832</td>
-                        <td><span class="badge badge-info">Internal</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-positive">+$500.00</td>
-                    </tr>
-                    <tr>
-                        <td>May 10, 2026</td>
-                        <td>Wire to ABC Realty</td>
-                        <td>Checking ••••4521</td>
-                        <td><span class="badge badge-info">Wire</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-negative">−$2,100.00</td>
-                    </tr>
-                    <tr>
-                        <td>May 9, 2026</td>
-                        <td>FedNow from Jane Smith</td>
-                        <td>Checking ••••4521</td>
-                        <td><span class="badge badge-info">FedNow</span></td>
-                        <td><span class="badge badge-pending">Pending</span></td>
-                        <td style="text-align: right;" class="amount amount-positive">+$250.00</td>
-                    </tr>
-                    <tr>
-                        <td>May 8, 2026</td>
-                        <td>SWIFT – London Office</td>
-                        <td>Checking ••••4521</td>
-                        <td><span class="badge badge-info">SWIFT</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-negative">−$5,000.00</td>
-                    </tr>
-                    <tr>
-                        <td>May 7, 2026</td>
-                        <td>ACH – Utility Bill</td>
-                        <td>Checking ••••4521</td>
-                        <td><span class="badge badge-info">ACH</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-negative">−$127.50</td>
-                    </tr>
-                    <tr>
-                        <td>May 5, 2026</td>
-                        <td>Venmo Refund</td>
-                        <td>Checking ••••4521</td>
-                        <td><span class="badge badge-info">ACH</span></td>
-                        <td><span class="badge badge-failed">Failed</span></td>
-                        <td style="text-align: right;" class="amount amount-positive">+$45.00</td>
-                    </tr>
-                </tbody>
-            </table>
+            @if (isLoading)
+            {
+                <div style="text-align: center; padding: 2rem;">Loading history...</div>
+            }
+            else if (errorMessage != null)
+            {
+                <div style="text-align: center; color: var(--error); padding: 1rem;">@errorMessage</div>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Account</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in filteredTransactions)
+                        {
+                            <tr>
+                                <td>@t.Timestamp.ToString("MMM dd, yyyy")</td>
+                                <td>@t.Description</td>
+                                <td>
+                                    @(string.IsNullOrEmpty(t.AccountDisplay) ? "External" : $"&middot;&middot;&middot;&middot;{(t.AccountDisplay.Length >= 4 ? t.AccountDisplay.Substring(t.AccountDisplay.Length - 4) : t.AccountDisplay)}")
+                                </td>
+                                <td><span class="badge badge-info">@t.TransactionType</span></td>
+                                <td>
+                                    @if (t.Status == "Completed")
+                                    {
+                                        <span class="badge badge-completed">Completed</span>
+                                    }
+                                    else if (t.Status == "Pending")
+                                    {
+                                        <span class="badge badge-pending">Pending</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-failed">@t.Status</span>
+                                    }
+                                </td>
+                                <td style="text-align: right;" class="amount @(t.IsCredit ? "amount-positive" : "amount-negative")">
+                                    @(t.IsCredit ? "+" : "−")$@t.Amount.ToString("N2")
+                                </td>
+                            </tr>
+                        }
+                        @if (!filteredTransactions.Any())
+                        {
+                            <tr><td colspan="6" style="text-align: center;">No transactions found.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
         </div>
     </div>
 </div>
@@ -140,8 +125,84 @@
     private string filterType = "";
     private string filterStatus = "";
 
+    private bool isLoading = true;
+    private string? errorMessage;
+    private List<TransactionHistoryItem> allTransactions = new();
+    private List<TransactionHistoryItem> filteredTransactions = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+            else
+            {
+                errorMessage = "Authentication token missing. Please log in again.";
+                isLoading = false;
+                return;
+            }
+            
+            var response = await client.GetAsync("api/transaction/history");
+            if (response.IsSuccessStatusCode)
+            {
+                var data = await response.Content.ReadFromJsonAsync<List<TransactionHistoryItem>>();
+                if (data != null)
+                {
+                    allTransactions = data;
+                    ApplyFilters();
+                }
+            }
+            else
+            {
+                errorMessage = "Failed to load transaction history.";
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "A network error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
     private void ApplyFilters()
     {
-        // TODO: Call API with filters
+        filteredTransactions = allTransactions.Where(t => 
+            (!filterFrom.HasValue || t.Timestamp.Date >= filterFrom.Value.Date) &&
+            (!filterTo.HasValue || t.Timestamp.Date <= filterTo.Value.Date) &&
+            (string.IsNullOrEmpty(filterType) || t.TransactionType == filterType) &&
+            (string.IsNullOrEmpty(filterStatus) || t.Status == filterStatus)
+        ).ToList();
+    }
+
+    public class TransactionHistoryItem
+    {
+        public Guid Id { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string Description { get; set; } = "";
+        public string TransactionType { get; set; } = "";
+        public string Status { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Currency { get; set; } = "USD";
+        public bool IsCredit { get; set; }
+        public string AccountDisplay { get; set; } = "";
     }
 }

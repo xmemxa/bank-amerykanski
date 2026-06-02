@@ -212,7 +212,7 @@ namespace bank.Controllers
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-                _configuration.GetSection("JWT_KEY").Value ?? "TajnyKluczBanku1234567890123456"));
+                _configuration.GetSection("JWT_KEY").Value ?? "TajnyKluczBanku1234567890123456789"));
 
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
 

@@ -1,4 +1,5 @@
 @page "/transfer/internal"
+@page "/transfer"
 @using System.ComponentModel.DataAnnotations
 @using bank.Models
 @inject IHttpClientFactory ClientFactory
@@ -8,12 +9,12 @@
 @inject IServiceProvider ServiceProvider
 @rendermode InteractiveServer
 
-<PageTitle>Internal Transfer – American Bank</PageTitle>
+<PageTitle>Transfer Funds – American Bank</PageTitle>
 
 <div class="fade-in transfer-page-center">
     <div class="page-header">
-        <h1>Internal Transfer</h1>
-        <p class="page-subtitle">Move money between your American Bank accounts</p>
+        <h1>Transfer Funds</h1>
+        <p class="page-subtitle">Move money internally or to external accounts via ACH, FedNow, or RTP</p>
     </div>
 
     <div class="card">
@@ -26,9 +27,19 @@
             <div class="alert alert-error">@errorMessage</div>
         }
 
-        <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="InternalTransfer">
+        <EditForm Model="model" OnValidSubmit="HandleSubmit" FormName="TransferFunds">
             <DataAnnotationsValidator />
             
+            <div class="form-group">
+                <label class="form-label">Transfer Type</label>
+                <InputSelect class="form-select" @bind-Value="model.TransactionType">
+                    <option value="Internal">Internal Transfer (Instant, Free)</option>
+                    <option value="ACH">ACH Transfer (1-3 days, Free)</option>
+                    <option value="FedNow">FedNow Instant (Instant, $0.50 fee)</option>
+                    <option value="RTP">RTP System (Instant, Free)</option>
+                </InputSelect>
+            </div>
+
             <div class="form-group">
                 <label class="form-label">From Account</label>
                 <InputSelect class="form-input" @bind-Value="model.FromAccount">
@@ -47,11 +58,32 @@
                 <ValidationMessage For="@(() => model.FromAccount)" class="text-danger" />
             </div>
 
-            <div class="form-group">
-                <label class="form-label">To Account (10 digits)</label>
-                <InputText class="form-input" @bind-Value="model.ToAccount" placeholder="e.g. 0987654321" maxlength="10" />
-                <ValidationMessage For="@(() => model.ToAccount)" class="text-danger" />
-            </div>
+            @if (model.TransactionType == "Internal")
+            {
+                <div class="form-group">
+                    <label class="form-label">To Account (Internal)</label>
+                    <InputText class="form-input" @bind-Value="model.ToAccount" placeholder="e.g. 0987654321" />
+                    <ValidationMessage For="@(() => model.ToAccount)" class="text-danger" />
+                </div>
+            }
+            else
+            {
+                <h3 style="margin: 1.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem;">External Recipient Details</h3>
+                <div class="form-group">
+                    <label class="form-label">Recipient's Routing Number / Bank Code</label>
+                    <InputText class="form-input" @bind-Value="model.TargetRoutingNumber" placeholder="@GetRoutingPlaceholder()" />
+                    <small style="color: var(--text-secondary); font-size: 0.75rem;">
+                        @if (model.TransactionType == "RTP") { <text>RTP bank code, e.g. BANKB</text> }
+                        else if (model.TransactionType == "FedNow") { <text>FedNow bank code, e.g. BANKB</text> }
+                        else { <text>9-digit routing number, e.g. 010101012</text> }
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Recipient's Account Number</label>
+                    <InputText class="form-input" @bind-Value="model.ExternalAccountNumber" placeholder="Account number" />
+                </div>
+            }
 
             <div class="form-group">
                 <label class="form-label">Amount (USD)</label>
@@ -64,10 +96,6 @@
                 <InputText class="form-input" @bind-Value="model.Description" placeholder="e.g., Monthly savings" />
             </div>
 
-            <div class="alert alert-info" style="margin-top: 1.5rem;">
-                Internal transfers are processed instantly with no fees.
-            </div>
-
             <button type="submit" class="btn btn-primary btn-lg btn-full" style="margin-top: 1rem;" disabled="@isLoading">
                 @(isLoading ? "Processing..." : "Transfer Funds")
             </button>
@@ -76,7 +104,7 @@
 </div>
 
 @code {
-    private TransferRequestDto model = new();
+    private TransferRequestDto model = new() { TransactionType = "Internal" };
     private string? successMessage;
     private string? errorMessage;
     private bool isLoading = false;
@@ -108,8 +136,8 @@
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<TransferResult>();
-                successMessage = result?.Message ?? $"Successfully transferred ${model.Amount:N2} between accounts.";
-                model = new TransferRequestDto(); 
+                successMessage = result?.Message ?? $"Successfully transferred ${model.Amount:N2}.";
+                model = new TransferRequestDto { TransactionType = model.TransactionType, FromAccount = model.FromAccount }; 
             }
             else
             {
@@ -157,6 +185,13 @@
             }
         }
     }
+
+    private string GetRoutingPlaceholder() => model.TransactionType switch
+    {
+        "RTP" => "e.g. BANKB",
+        "FedNow" => "e.g. 010101012",
+        _ => "e.g. 010101012"
+    };
 
     private class TransferResult
     {

@@ -44,7 +44,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<BankDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-var jwtKey = builder.Configuration["JWT_KEY"] ?? "TajnyKluczBanku1234567890123456";
+var jwtKey = builder.Configuration["JWT_KEY"] ?? "TajnyKluczBanku1234567890123456789";
 var key = Encoding.UTF8.GetBytes(jwtKey);
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -85,6 +85,11 @@ builder.Services.AddScoped(sp =>
     return new HttpClient { BaseAddress = new Uri(navManager.BaseUri) };
 });
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<bank.Services.ExternalPayments.AchService>();
+builder.Services.AddScoped<bank.Services.ExternalPayments.FedNowService>();
+builder.Services.AddScoped<bank.Services.ExternalPayments.RtpService>();
+builder.Services.AddHostedService<bank.Services.ExternalPayments.RtpRegistrationService>();
+builder.Services.AddHostedService<bank.Services.ExternalPayments.PaymentPollingBackgroundService>();
 
 var app = builder.Build();
 

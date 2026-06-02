@@ -18,8 +18,15 @@ namespace bank.Models
         public string? Description { get; set; }
 
         // External transfer fields
-        public string TransactionType { get; set; } = "Internal"; // Internal, ACH, FedNow, RTP
+        public string TransactionType { get; set; } = "Internal"; // Internal, ACH, FedNow, RTP, SWIFT
         public string? TargetRoutingNumber { get; set; }
         public string? ExternalAccountNumber { get; set; }
+
+        // SWIFT specific fields
+        public string? SwiftCode { get; set; }
+        public string? BankName { get; set; }
+        public string? Country { get; set; }
+        public string? RecipientName { get; set; }
+        public string? RecipientAddress { get; set; }
     }
 }

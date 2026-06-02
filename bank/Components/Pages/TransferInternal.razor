@@ -37,6 +37,7 @@
                     <option value="ACH">ACH Transfer (1-3 days, Free)</option>
                     <option value="FedNow">FedNow Instant (Instant, $0.50 fee)</option>
                     <option value="RTP">RTP System (Instant, Free)</option>
+                    <option value="SWIFT">SWIFT International ($45 fee)</option>
                 </InputSelect>
             </div>
 
@@ -75,9 +76,30 @@
                     <small style="color: var(--text-secondary); font-size: 0.75rem;">
                         @if (model.TransactionType == "RTP") { <text>RTP bank code, e.g. BANKB</text> }
                         else if (model.TransactionType == "FedNow") { <text>FedNow bank code, e.g. BANKB</text> }
+                        else if (model.TransactionType == "SWIFT") { <text>SWIFT BIC Code, e.g. UKBKGB01XXX</text> }
                         else { <text>9-digit routing number, e.g. 010101012</text> }
                     </small>
                 </div>
+
+                @if (model.TransactionType == "SWIFT")
+                {
+                    <div class="form-group">
+                        <label class="form-label">Recipient Name</label>
+                        <InputText class="form-input" @bind-Value="model.RecipientName" placeholder="Full legal name" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Recipient Address</label>
+                        <InputText class="form-input" @bind-Value="model.RecipientAddress" placeholder="Full address" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bank Name</label>
+                        <InputText class="form-input" @bind-Value="model.BankName" placeholder="Bank name" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Country</label>
+                        <InputText class="form-input" @bind-Value="model.Country" placeholder="e.g. United Kingdom" />
+                    </div>
+                }
 
                 <div class="form-group">
                     <label class="form-label">Recipient's Account Number</label>
@@ -190,6 +212,7 @@
     {
         "RTP" => "e.g. BANKB",
         "FedNow" => "e.g. 010101012",
+        "SWIFT" => "e.g. UKBKGB01XXX",
         _ => "e.g. 010101012"
     };
 

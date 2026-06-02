@@ -86,7 +86,7 @@
                                 <td>@t.Timestamp.ToString("MMM dd, yyyy")</td>
                                 <td>@t.Description</td>
                                 <td>
-                                    @(string.IsNullOrEmpty(t.AccountDisplay) ? "External" : $"&middot;&middot;&middot;&middot;{(t.AccountDisplay.Length >= 4 ? t.AccountDisplay.Substring(t.AccountDisplay.Length - 4) : t.AccountDisplay)}")
+                                    @(string.IsNullOrEmpty(t.AccountDisplay) ? "External" : $"••••{(t.AccountDisplay.Length >= 4 ? t.AccountDisplay.Substring(t.AccountDisplay.Length - 4) : t.AccountDisplay)}")
                                 </td>
                                 <td><span class="badge badge-info">@t.TransactionType</span></td>
                                 <td>

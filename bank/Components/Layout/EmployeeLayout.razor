@@ -1,0 +1,14 @@
+@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
+@layout MainLayout
+
+<AuthorizeView Roles="Employee">
+    <Authorized>
+        @Body
+    </Authorized>
+    <NotAuthorized>
+        @{
+            NavigationManager.NavigateTo("/dashboard", forceLoad: true);
+        }
+    </NotAuthorized>
+</AuthorizeView>

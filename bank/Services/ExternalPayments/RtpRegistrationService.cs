@@ -39,6 +39,7 @@ namespace bank.Services.ExternalPayments
                 var payload = new
                 {
                     bank_code = bankCode,
+                    routing_number = "040104018",
                     balance = 1000000000,
                     debt_limit = 500000000
                 };

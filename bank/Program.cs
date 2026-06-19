@@ -8,6 +8,8 @@ using bank.Components;
 using bank.Services;
 using bank.Providers;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +45,10 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddDbContext<BankDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo("/app/Keys"))
+    .SetApplicationName("AmericanBank");
 
 var jwtKey = builder.Configuration["JWT_KEY"] ?? "TajnyKluczBanku1234567890123456789";
 var key = Encoding.UTF8.GetBytes(jwtKey);
@@ -86,11 +92,10 @@ builder.Services.AddScoped(sp =>
 });
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<bank.Services.ExternalPayments.AchService>();
-builder.Services.AddHttpClient<bank.Services.ExternalPayments.RtpRegistrationService>();
-builder.Services.AddHttpClient<bank.Services.ExternalPayments.RtpService>();
-builder.Services.AddHttpClient<bank.Services.ExternalPayments.SwiftService>();
-builder.Services.AddScoped<bank.Services.ExternalPayments.FedNowService>();
+builder.Services.AddScoped<bank.Services.ExternalPayments.RtpRegistrationService>();
 builder.Services.AddScoped<bank.Services.ExternalPayments.RtpService>();
+builder.Services.AddScoped<bank.Services.ExternalPayments.SwiftService>();
+builder.Services.AddScoped<bank.Services.ExternalPayments.FedNowService>();
 builder.Services.AddHostedService<bank.Services.ExternalPayments.RtpRegistrationService>();
 builder.Services.AddHostedService<bank.Services.ExternalPayments.PaymentPollingBackgroundService>();
 

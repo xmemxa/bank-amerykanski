@@ -73,8 +73,9 @@
                         <tr>
                             <th>Date</th>
                             <th>Description</th>
-                            <th>Account</th>
+                            <th>E2E ID</th>
                             <th>Type</th>
+                            <th>Account</th>
                             <th>Status</th>
                             <th style="text-align: right;">Amount</th>
                         </tr>
@@ -85,10 +86,11 @@
                             <tr>
                                 <td>@t.Timestamp.ToString("MMM dd, yyyy")</td>
                                 <td>@t.Description</td>
+                                <td><small class="text-muted">@t.EndToEndId</small></td>
+                                <td><span class="badge badge-info">@t.TransactionType</span></td>
                                 <td>
                                     @(string.IsNullOrEmpty(t.AccountDisplay) ? "External" : $"••••{(t.AccountDisplay.Length >= 4 ? t.AccountDisplay.Substring(t.AccountDisplay.Length - 4) : t.AccountDisplay)}")
                                 </td>
-                                <td><span class="badge badge-info">@t.TransactionType</span></td>
                                 <td>
                                     @if (t.Status == "Completed")
                                     {
@@ -199,6 +201,7 @@
         public DateTime Timestamp { get; set; }
         public string Description { get; set; } = "";
         public string TransactionType { get; set; } = "";
+        public string EndToEndId { get; set; } = "";
         public string Status { get; set; } = "";
         public decimal Amount { get; set; }
         public string Currency { get; set; } = "USD";

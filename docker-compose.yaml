@@ -19,6 +19,12 @@ services:
       - db
     env_file:
       - .env
+    environment:
+      - ExternalPayments__FedNowApiUrl=http://host.docker.internal:8770
+      - ExternalPayments__RtpApiUrl=http://host.docker.internal:8000
+      - ExternalPayments__SwiftApiUrl=http://host.docker.internal:3000/api/v1/swift/message
+      - ExternalPayments__AchApiUrl=http://host.docker.internal:8310
+      - ExternalPayments__AchSftpHost=host.docker.internal
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

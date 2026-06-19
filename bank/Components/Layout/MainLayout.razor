@@ -3,18 +3,25 @@
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <div class="page-layout">
-    <AuthorizeView Roles="Employee">
+    <AuthorizeView>
         <Authorized>
-            <EmployeeNavMenu />
+            <AuthorizeView Roles="Employee" Context="employeeContext">
+                <Authorized>
+                    <EmployeeNavMenu />
+                </Authorized>
+                <NotAuthorized>
+                    <NavMenu />
+                </NotAuthorized>
+            </AuthorizeView>
+
+            <main class="main-content">
+                @Body
+            </main>
         </Authorized>
         <NotAuthorized>
-            <NavMenu />
+            <bank.Components.RedirectToLogin />
         </NotAuthorized>
     </AuthorizeView>
-
-    <main class="main-content">
-        @Body
-    </main>
 </div>
 
 @code {

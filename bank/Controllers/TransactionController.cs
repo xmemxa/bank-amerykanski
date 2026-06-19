@@ -53,6 +53,8 @@ namespace bank.Controllers
 
             try
             {
+                string? endToEndIdForTransaction = null;
+
                 if (request.TransactionType == "Internal")
                 {
                     if (request.FromAccount == request.ToAccount)
@@ -81,7 +83,7 @@ namespace bank.Controllers
                             {
                                 header = new
                                 {
-                                    immediate_destination = request.TargetRoutingNumber ?? "000000000",
+                                    immediate_destination = "090000515",
                                     immediate_origin = "040104018",
                                     immediate_destination_name = "External Bank",
                                     immediate_origin_name = "Bank A",
@@ -127,25 +129,39 @@ namespace bank.Controllers
                                 }
                             }
                         };
-                        success = await achService.SendAchTransferAsync(achData);
+                        var achFileName = await achService.SendAchTransferAsync(achData);
+                        if (achFileName != null)
+                        {
+                            success = true;
+                            endToEndIdForTransaction = achFileName;
+                        }
                     }
                     else if (request.TransactionType == "FedNow" || request.TransactionType == "RTP")
                     {
+                        var endToEndId = $"E2E-{Guid.NewGuid():N}";
+                        var msgId = $"MSG-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 8)}";
+                        var memo = !string.IsNullOrEmpty(request.Description) ? request.Description : $"{request.TransactionType} Transfer";
+                        
+                        string dbtrNm = request.TransactionType == "RTP" ? "BANKA" : "Bank A";
+                        string cdtrNm = request.TransactionType == "RTP" ? request.TargetRoutingNumber ?? "" : "External Receiver";
+
                         string xmlPayload = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <Document xmlns=""urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"">
   <FIToFICstmrCdtTrf>
     <GrpHdr>
-      <MsgId>MSG-{Guid.NewGuid():N}</MsgId>
+      <MsgId>{msgId}</MsgId>
+      <CreDtTm>{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ss}</CreDtTm>
     </GrpHdr>
     <CdtTrfTxInf>
       <PmtId>
-        <EndToEndId>E2E-{Guid.NewGuid():N}</EndToEndId>
+        <EndToEndId>{endToEndId}</EndToEndId>
       </PmtId>
       <IntrBkSttlmAmt Ccy=""USD"">{request.Amount:0.00}</IntrBkSttlmAmt>
       <DbtrAgt>
         <FinInstnId>
           <ClrSysMmbId>
-            <MmbId>BANKA</MmbId>
+            <nm>{dbtrNm}</nm>
+            <MmbId>040104018</MmbId>
           </ClrSysMmbId>
         </FinInstnId>
       </DbtrAgt>
@@ -156,12 +172,14 @@ namespace bank.Controllers
         <Id>
           <Othr>
             <Id>{request.FromAccount}</Id>
+            <SchmeNm><Prtry>US_ACCT</Prtry></SchmeNm>
           </Othr>
         </Id>
       </DbtrAcct>
       <CdtrAgt>
         <FinInstnId>
           <ClrSysMmbId>
+            <nm>{cdtrNm}</nm>
             <MmbId>{request.TargetRoutingNumber}</MmbId>
           </ClrSysMmbId>
         </FinInstnId>
@@ -173,9 +191,13 @@ namespace bank.Controllers
         <Id>
           <Othr>
             <Id>{request.ExternalAccountNumber ?? "123456789"}</Id>
+            <SchmeNm><Prtry>US_ACCT</Prtry></SchmeNm>
           </Othr>
         </Id>
       </CdtrAcct>
+      <RmtInf>
+        <Ustrd>{memo}</Ustrd>
+      </RmtInf>
     </CdtTrfTxInf>
   </FIToFICstmrCdtTrf>
 </Document>";
@@ -184,6 +206,10 @@ namespace bank.Controllers
                             success = await fedNowService.SendFedNowTransferAsync(xmlPayload);
                         else if (request.TransactionType == "RTP")
                             success = await rtpService.SendRtpTransferAsync(xmlPayload);
+                        
+                        // Store EndToEndId for later pacs.002 correlation
+                        if (success)
+                            endToEndIdForTransaction = endToEndId;
                     }
                     else if (request.TransactionType == "SWIFT")
                     {
@@ -217,8 +243,10 @@ namespace bank.Controllers
                     Currency = sourceAccount.Currency,
                     Description = !string.IsNullOrEmpty(request.Description) ? request.Description : $"{request.TransactionType} Transfer",
                     Timestamp = DateTime.UtcNow,
-                    Status = "Completed",
-                    TransactionType = request.TransactionType
+                    Status = request.TransactionType == "Internal" ? "Completed" : "Pending",
+                    TransactionType = request.TransactionType,
+                    EndToEndId = endToEndIdForTransaction,
+                    ExternalStatus = request.TransactionType == "Internal" ? null : "PDNG"
                 };
 
                 _context.Transactions.Add(transactionRecord);
@@ -284,6 +312,7 @@ namespace bank.Controllers
                     t.Status,
                     t.Amount,
                     t.Currency,
+                    t.EndToEndId,
                     IsCredit = t.ToAccountId != null && accountIds.Contains(t.ToAccountId.Value),
                     AccountDisplay = (t.ToAccountId != null && accountIds.Contains(t.ToAccountId.Value)) 
                                         ? (t.ToAccount != null ? t.ToAccount.AccountNumber : "") 

@@ -23,5 +23,9 @@ namespace bank.Models
         public string? ExternalSourceAccount { get; set; }
         public string? ExternalDestinationAccount { get; set; }
         public string? TransactionType { get; set; } // np. "Internal", "ACH", "FedNow", "SWIFT"
+        
+        // FedNow/RTP correlation fields
+        public string? EndToEndId { get; set; } // ISO 20022 EndToEndId for pacs.008 <-> pacs.002 matching
+        public string? ExternalStatus { get; set; } // Status from external system: ACCP, RJCT, PDNG, ACTC
     }
 }

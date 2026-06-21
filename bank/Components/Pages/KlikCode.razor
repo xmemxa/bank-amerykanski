@@ -1,0 +1,136 @@
+@page "/klik/code"
+@using bank.Services.Klik
+@using bank.Providers
+@using bank.Services
+@using System.Threading
+@using Microsoft.AspNetCore.Components.Authorization
+@inject KlikService KlikService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>KLIK Code</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-2">
+        <h1 class="text-3xl font-bold tracking-tight">Generate KLIK Code</h1>
+        <p class="text-muted-foreground">Generate a 6-digit code to pay in stores or online.</p>
+    </div>
+
+    <div class="grid gap-6 md:grid-cols-2">
+        <div class="rounded-xl border bg-card text-card-foreground shadow">
+            <div class="flex flex-col space-y-1.5 p-6">
+                <h3 class="font-semibold leading-none tracking-tight">Your Code</h3>
+            </div>
+            <div class="p-6 pt-0 flex flex-col items-center justify-center min-h-[200px]">
+                @if (isLoading)
+                {
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                }
+                else if (!string.IsNullOrEmpty(klikCode))
+                {
+                    <div class="text-6xl font-bold tracking-widest text-primary mb-4 font-mono">
+                        @klikCode.Substring(0, 3) @klikCode.Substring(3, 3)
+                    </div>
+                    <div class="text-sm text-muted-foreground flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-timer"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
+                        Expires in: <span class="font-medium text-foreground">@timeLeft s</span>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="text-destructive text-sm bg-destructive/10 p-3 rounded-md">
+                        @errorMessage
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted-foreground text-center mb-6">Click the button below to generate a new KLIK payment code.</p>
+                }
+
+                <button @onclick="GenerateCode" disabled="@(isLoading || (!string.IsNullOrEmpty(klikCode) && timeLeft > 0))"
+                        class="mt-6 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full max-w-[200px]">
+                    @(string.IsNullOrEmpty(klikCode) ? "Generate Code" : "Generating...")
+                </button>
+            </div>
+        </div>
+        
+        <div class="rounded-xl border bg-card text-card-foreground shadow">
+            <div class="flex flex-col space-y-1.5 p-6">
+                <h3 class="font-semibold leading-none tracking-tight">How it works</h3>
+            </div>
+            <div class="p-6 pt-0 text-sm text-muted-foreground space-y-4">
+                <ol class="list-decimal list-inside space-y-2">
+                    <li>Generate a 6-digit code using the button on the left.</li>
+                    <li>Tell the cashier you want to pay with KLIK, or select KLIK online.</li>
+                    <li>Enter the 6-digit code on the payment terminal or website.</li>
+                    <li>Wait for a push notification or check the <strong>Authorize Payments</strong> tab.</li>
+                    <li>Confirm the payment with your PIN/password to complete the transaction.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string klikCode = string.Empty;
+    private int timeLeft = 0;
+    private bool isLoading = false;
+    private string errorMessage = string.Empty;
+    private Timer? timer;
+
+    private async Task GenerateCode()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        klikCode = string.Empty;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdStr = authState.User.FindFirst("id")?.Value;
+            
+            if (string.IsNullOrEmpty(userIdStr))
+            {
+                errorMessage = "You must be logged in to generate a code.";
+                return;
+            }
+
+            var result = await KlikService.GenerateCodeAsync(userIdStr);
+            klikCode = result.Code;
+            timeLeft = result.ExpiresIn;
+            
+            StartTimer();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void StartTimer()
+    {
+        timer?.Dispose();
+        timer = new Timer(_ =>
+        {
+            if (timeLeft > 0)
+            {
+                timeLeft--;
+                InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                klikCode = string.Empty;
+                timer?.Dispose();
+                InvokeAsync(StateHasChanged);
+            }
+        }, null, 1000, 1000);
+    }
+
+    public void Dispose()
+    {
+        timer?.Dispose();
+    }
+}

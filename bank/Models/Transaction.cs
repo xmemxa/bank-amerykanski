@@ -2,6 +2,18 @@ using System;
 
 namespace bank.Models
 {
+    public static class TransactionTypes
+    {
+        public const string Transfer = "TRANSFER";
+        public const string Deposit = "DEPOSIT";
+        public const string Withdrawal = "WITHDRAWAL";
+        public const string Fee = "FEE";
+        public const string RTP = "RTP";
+        public const string FedNow = "FEDNOW";
+        public const string Swift = "SWIFT";
+        public const string KLIK = "KLIK";
+    }
+
     public class Transaction
     {
         public Guid Id { get; set; }

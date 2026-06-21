@@ -1,0 +1,163 @@
+@page "/klik/authorize"
+@using bank.Services.Klik
+@using bank.Providers
+@using bank.Services
+@using bank.Data
+@using bank.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Threading
+@using Microsoft.AspNetCore.Components.Authorization
+@inject KlikService KlikService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject BankDbContext DbContext
+@inject NavigationManager NavigationManager
+
+<PageTitle>Authorize Payments</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-2">
+        <h1 class="text-3xl font-bold tracking-tight">Authorize KLIK Payments</h1>
+        <p class="text-muted-foreground">Review and confirm pending KLIK transactions.</p>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="flex justify-center p-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+    }
+    else if (!pendingAuths.Any())
+    {
+        <div class="rounded-xl border bg-card text-card-foreground shadow p-12 text-center">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle text-muted-foreground"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <h3 class="mt-4 text-lg font-semibold">No pending authorizations</h3>
+            <p class="mt-2 text-sm text-muted-foreground">You don't have any KLIK payments waiting for your approval right now.</p>
+        </div>
+    }
+    else
+    {
+        <div class="grid gap-4">
+            @foreach (var auth in pendingAuths)
+            {
+                <div class="rounded-xl border bg-card text-card-foreground shadow overflow-hidden">
+                    <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex items-start gap-4">
+                            <div class="rounded-full bg-primary/10 p-3 mt-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-store text-primary"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-lg">@auth.MerchantName</h3>
+                                <p class="text-sm text-muted-foreground">KLIK Payment</p>
+                                <p class="text-xs text-muted-foreground mt-1">Expires: @auth.ExpiryTime.ToLocalTime().ToString("HH:mm:ss")</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2">
+                            <div class="text-2xl font-bold">@auth.Amount.ToString("C")</div>
+                            <div class="flex gap-2 w-full md:w-auto">
+                                <button @onclick="() => HandleDecision(auth, false)" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 flex-1 md:flex-none">
+                                    Reject
+                                </button>
+                                <button @onclick="() => HandleDecision(auth, true)" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2 flex-1 md:flex-none">
+                                    Authorize
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<KlikPendingAuthorization> pendingAuths = new();
+    private bool isLoading = true;
+    private User? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst("id")?.Value;
+        if (!string.IsNullOrEmpty(userIdStr) && Guid.TryParse(userIdStr, out var userId))
+        {
+            currentUser = await DbContext.Users.FindAsync(userId);
+        }
+        
+        await LoadPendingAuths();
+    }
+
+    private async Task LoadPendingAuths()
+    {
+        if (currentUser == null) return;
+        
+        isLoading = true;
+        
+        // Remove expired
+        var expired = await DbContext.KlikPendingAuthorizations
+            .Where(a => a.UserId == currentUser.Id.ToString() && a.Status == "PENDING" && a.ExpiryTime < DateTime.UtcNow)
+            .ToListAsync();
+            
+        foreach(var e in expired)
+        {
+            e.Status = "EXPIRED";
+        }
+        
+        if (expired.Any()) await DbContext.SaveChangesAsync();
+
+        pendingAuths = await DbContext.KlikPendingAuthorizations
+            .Where(a => a.UserId == currentUser.Id.ToString() && a.Status == "PENDING" && a.ExpiryTime >= DateTime.UtcNow)
+            .OrderBy(a => a.ExpiryTime)
+            .ToListAsync();
+            
+        isLoading = false;
+    }
+
+    private async Task HandleDecision(KlikPendingAuthorization auth, bool isAccepted)
+    {
+        // Sprawdzamy czy mamy wystarczające środki, jeżeli akceptujemy
+        if (isAccepted)
+        {
+            var userAccount = await DbContext.Accounts.FirstOrDefaultAsync(a => a.UserId == currentUser!.Id);
+            if (userAccount == null || userAccount.Balance < auth.Amount)
+            {
+                // Odrzuć z powodu braku środków
+                await KlikService.ConfirmPaymentAsync(auth.TransactionId, "REJECTED", "INSUFFICIENT_FUNDS");
+                auth.Status = "REJECTED";
+                await DbContext.SaveChangesAsync();
+                await LoadPendingAuths();
+                // Pokazujemy alert / komunikat?
+                return;
+            }
+
+            // Realizujemy płatność
+            userAccount.Balance -= auth.Amount;
+            
+            var tx = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                FromAccountId = userAccount.Id,
+                Amount = auth.Amount,
+                Currency = auth.Currency,
+                Description = $"KLIK Payment: {auth.MerchantName}",
+                Status = "Completed",
+                TransactionType = "KLIK"
+            };
+            
+            DbContext.Transactions.Add(tx);
+            auth.Status = "ACCEPTED";
+            await DbContext.SaveChangesAsync();
+
+            await KlikService.ConfirmPaymentAsync(auth.TransactionId, "ACCEPTED");
+        }
+        else
+        {
+            auth.Status = "REJECTED";
+            await DbContext.SaveChangesAsync();
+            await KlikService.ConfirmPaymentAsync(auth.TransactionId, "REJECTED", "USER_DECLINED");
+        }
+
+        await LoadPendingAuths();
+    }
+}

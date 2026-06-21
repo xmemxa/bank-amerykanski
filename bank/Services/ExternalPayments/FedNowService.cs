@@ -58,6 +58,79 @@ namespace bank.Services.ExternalPayments
             }
         }
 
+        public async Task<(bool IsSuccess, string? Error)> SendInstantTransferAsync(
+            Guid transactionId,
+            string senderAccountId,
+            decimal amount,
+            string recipientRouting,
+            string recipientAccount,
+            string memo)
+        {
+            var msgId = $"MSG-{DateTime.UtcNow:yyyyMMdd}-{transactionId.ToString().Substring(0, 8)}";
+            var dtTm = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+            var endToEndId = $"E2E-{transactionId:N}";
+
+            var pacs008 = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<Document xmlns=""urn:iso:std:iso:20022:tech:xsd:pacs.008.001.08"">
+  <FIToFICstmrCdtTrf>
+    <GrpHdr>
+      <MsgId>{msgId}</MsgId>
+      <CreDtTm>{dtTm}</CreDtTm>
+    </GrpHdr>
+    <CdtTrfTxInf>
+      <PmtId>
+        <EndToEndId>{endToEndId}</EndToEndId>
+      </PmtId>
+      <IntrBkSttlmAmt Ccy=""USD"">{amount:0.00}</IntrBkSttlmAmt>
+      <DbtrAgt>
+        <FinInstnId>
+          <ClrSysMmbId>
+            <nm>{_bankName}</nm>
+            <MmbId>{_bankRtn}</MmbId>
+          </ClrSysMmbId>
+        </FinInstnId>
+      </DbtrAgt>
+      <Dbtr>
+        <Nm>American Bank Customer</Nm>
+      </Dbtr>
+      <DbtrAcct>
+        <Id>
+          <Othr>
+            <Id>{senderAccountId}</Id>
+            <SchmeNm><Prtry>US_ACCT</Prtry></SchmeNm>
+          </Othr>
+        </Id>
+      </DbtrAcct>
+      <CdtrAgt>
+        <FinInstnId>
+          <ClrSysMmbId>
+            <nm>Recipient Bank</nm>
+            <MmbId>{recipientRouting}</MmbId>
+          </ClrSysMmbId>
+        </FinInstnId>
+      </CdtrAgt>
+      <Cdtr>
+        <Nm>Recipient</Nm>
+      </Cdtr>
+      <CdtrAcct>
+        <Id>
+          <Othr>
+            <Id>{recipientAccount}</Id>
+            <SchmeNm><Prtry>US_ACCT</Prtry></SchmeNm>
+          </Othr>
+        </Id>
+      </CdtrAcct>
+      <RmtInf>
+        <Ustrd>{memo}</Ustrd>
+      </RmtInf>
+    </CdtTrfTxInf>
+  </FIToFICstmrCdtTrf>
+</Document>";
+
+            var success = await SendFedNowTransferAsync(pacs008);
+            return success ? (true, null) : (false, "Failed to send FedNow transfer");
+        }
+
         /// <summary>
         /// Fetch the oldest incoming XML from the MQ FIFO queue.
         /// Returns null if no files are in the queue (404).

@@ -11,7 +11,8 @@ namespace bank.Data
 
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Account> Accounts { get; set; } = null!;
-        public DbSet<Transaction> Transactions { get; set; } = null!;
+        public DbSet<Transaction> Transactions { get; set; }
+        public DbSet<KlikPendingAuthorization> KlikPendingAuthorizations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -25,6 +25,10 @@ services:
       - ExternalPayments__SwiftApiUrl=http://host.docker.internal:3000/api/v1/swift/message
       - ExternalPayments__AchApiUrl=http://host.docker.internal:8310
       - ExternalPayments__AchSftpHost=host.docker.internal
+      - Klik__ApiUrl=http://host.docker.internal:8001
+      - Klik__ApiKey=klik_RbKGXOZH7gXAwr-soCdei96lQXvfWy7XewpPRgsCqPQ
+      - Klik__Zone=US
+      - Klik__BankName=AMERICAN_BANK
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

@@ -1,0 +1,304 @@
+@page "/klik/p2p"
+@using bank.Services.Klik
+@using bank.Services.ExternalPayments
+@using bank.Providers
+@using bank.Services
+@using bank.Data
+@using bank.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject KlikP2PService KlikP2PService
+@inject FedNowService FedNowService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject BankDbContext DbContext
+
+<PageTitle>KLIK P2P Transfer</PageTitle>
+
+<div class="flex flex-col gap-6">
+    <div class="flex flex-col gap-2">
+        <h1 class="text-3xl font-bold tracking-tight">KLIK Transfer to Phone</h1>
+        <p class="text-muted-foreground">Send money instantly using just a phone number, or register your own number.</p>
+    </div>
+
+    <div class="grid gap-6 md:grid-cols-2">
+        <!-- Send Money Form -->
+        <div class="rounded-xl border bg-card text-card-foreground shadow">
+            <div class="flex flex-col space-y-1.5 p-6 border-b">
+                <h3 class="font-semibold leading-none tracking-tight">Send Money</h3>
+            </div>
+            <div class="p-6">
+                <EditForm Model="transferModel" OnValidSubmit="HandleSendMoney">
+                    <DataAnnotationsValidator />
+
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium leading-none">Recipient Phone Number (e.g. +15551234567)</label>
+                            <InputText @bind-Value="transferModel.Phone" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="+1..." />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium leading-none">Amount (USD)</label>
+                            <InputNumber @bind-Value="transferModel.Amount" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" min="0.01" step="0.01" />
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium leading-none">Description</label>
+                            <InputText @bind-Value="transferModel.Description" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="Transfer description" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(sendErrorMessage))
+                        {
+                            <div class="text-destructive text-sm bg-destructive/10 p-3 rounded-md">
+                                @sendErrorMessage
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(sendSuccessMessage))
+                        {
+                            <div class="text-green-600 text-sm bg-green-50 p-3 rounded-md border border-green-200">
+                                @sendSuccessMessage
+                            </div>
+                        }
+
+                        <button type="submit" disabled="@isSending" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full">
+                            @if (isSending)
+                            {
+                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                <span>Sending...</span>
+                            }
+                            else
+                            {
+                                <span>Send instantly via KLIK</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+
+        <!-- Manage Alias -->
+        <div class="rounded-xl border bg-card text-card-foreground shadow">
+            <div class="flex flex-col space-y-1.5 p-6 border-b">
+                <h3 class="font-semibold leading-none tracking-tight">Receive Money (Register Phone)</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <p class="text-sm text-muted-foreground mb-4">Register your phone number to receive transfers instantly from anyone using KLIK P2P.</p>
+                    
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium leading-none">Your Phone Number</label>
+                        <input @bind="registerPhone" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="+1..." />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(registerErrorMessage))
+                    {
+                        <div class="text-destructive text-sm bg-destructive/10 p-3 rounded-md">
+                            @registerErrorMessage
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(registerSuccessMessage))
+                    {
+                        <div class="text-green-600 text-sm bg-green-50 p-3 rounded-md border border-green-200">
+                            @registerSuccessMessage
+                        </div>
+                    }
+
+                    <div class="flex gap-2">
+                        <button @onclick="RegisterAlias" disabled="@isRegistering" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2 flex-1">
+                            Register
+                        </button>
+                        <button @onclick="DeleteAlias" disabled="@isRegistering" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 flex-1">
+                            Unregister
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private class TransferModel
+    {
+        public string Phone { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Description { get; set; } = string.Empty;
+    }
+
+    private TransferModel transferModel = new();
+    private string registerPhone = string.Empty;
+    
+    private bool isSending = false;
+    private bool isRegistering = false;
+    
+    private string sendErrorMessage = string.Empty;
+    private string sendSuccessMessage = string.Empty;
+    
+    private string registerErrorMessage = string.Empty;
+    private string registerSuccessMessage = string.Empty;
+
+    private User? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userIdStr = authState.User.FindFirst("id")?.Value;
+        if (!string.IsNullOrEmpty(userIdStr) && Guid.TryParse(userIdStr, out var userId))
+        {
+            currentUser = await DbContext.Users.FindAsync(userId);
+        }
+    }
+
+    private async Task HandleSendMoney()
+    {
+        isSending = true;
+        sendErrorMessage = string.Empty;
+        sendSuccessMessage = string.Empty;
+
+        try
+        {
+            if (currentUser == null) throw new Exception("User not found.");
+            if (string.IsNullOrWhiteSpace(transferModel.Phone)) throw new Exception("Phone is required.");
+            if (transferModel.Amount <= 0) throw new Exception("Amount must be greater than 0.");
+
+            var senderAccount = await DbContext.Accounts.FirstOrDefaultAsync(a => a.UserId == currentUser.Id);
+            if (senderAccount == null) throw new Exception("Account not found.");
+            if (senderAccount.Balance < transferModel.Amount) throw new Exception("Insufficient funds.");
+
+            // 1. Lookup the alias in KLIK
+            var lookupResult = await KlikP2PService.LookupAliasAsync(transferModel.Phone);
+            if (lookupResult == null)
+            {
+                throw new Exception("Phone number is not registered in KLIK P2P.");
+            }
+
+            // 2. Perform the actual transfer via FedNow
+            var (recipientRouting, recipientAccount) = lookupResult.Value;
+
+            // FedNow fee is usually $0.50 but P2P might be free or differently priced. We'll stick to our standard.
+            decimal fee = 0.50m;
+            if (senderAccount.Balance < transferModel.Amount + fee) throw new Exception($"Insufficient funds for amount + ${fee} FedNow fee.");
+
+            var txId = Guid.NewGuid();
+            var result = await FedNowService.SendInstantTransferAsync(
+                txId,
+                senderAccount.Id.ToString(),
+                transferModel.Amount,
+                recipientRouting,
+                recipientAccount,
+                transferModel.Description
+            );
+
+            if (!result.IsSuccess)
+            {
+                throw new Exception($"FedNow transfer failed: {result.Error}");
+            }
+
+            // 3. Save transactions
+            senderAccount.Balance -= (transferModel.Amount + fee);
+
+            var tx = new Transaction
+            {
+                Id = txId,
+                FromAccountId = senderAccount.Id,
+                Amount = transferModel.Amount,
+                Currency = "USD",
+                Description = $"KLIK P2P to {transferModel.Phone}: {transferModel.Description}",
+                Status = "Completed",
+                TransactionType = "FEDNOW",
+                ExternalDestinationAccount = recipientAccount
+            };
+
+            var feeTx = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                FromAccountId = senderAccount.Id,
+                Amount = fee,
+                Currency = "USD",
+                Description = "FedNow P2P Transfer Fee",
+                Status = "Completed",
+                TransactionType = "Fee"
+            };
+
+            DbContext.Transactions.Add(tx);
+            DbContext.Transactions.Add(feeTx);
+            await DbContext.SaveChangesAsync();
+
+            sendSuccessMessage = "Transfer sent successfully!";
+            transferModel = new TransferModel(); // Reset form
+        }
+        catch (Exception ex)
+        {
+            sendErrorMessage = ex.Message;
+        }
+        finally
+        {
+            isSending = false;
+        }
+    }
+
+    private async Task RegisterAlias()
+    {
+        isRegistering = true;
+        registerErrorMessage = string.Empty;
+        registerSuccessMessage = string.Empty;
+
+        try
+        {
+            if (currentUser == null) throw new Exception("User not found.");
+            if (string.IsNullOrWhiteSpace(registerPhone)) throw new Exception("Phone is required.");
+
+            var myAccount = await DbContext.Accounts.FirstOrDefaultAsync(a => a.UserId == currentUser.Id);
+            if (myAccount == null) throw new Exception("Account not found.");
+
+            // Standardowe mockowane routing number dla American Bank to 040104018
+            var success = await KlikP2PService.RegisterAliasAsync(registerPhone, "040104018", myAccount.AccountNumber);
+            if (success)
+            {
+                registerSuccessMessage = "Phone number registered successfully!";
+            }
+            else
+            {
+                registerErrorMessage = "Failed to register alias. It might be already in use.";
+            }
+        }
+        catch (Exception ex)
+        {
+            registerErrorMessage = ex.Message;
+        }
+        finally
+        {
+            isRegistering = false;
+        }
+    }
+
+    private async Task DeleteAlias()
+    {
+        isRegistering = true;
+        registerErrorMessage = string.Empty;
+        registerSuccessMessage = string.Empty;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(registerPhone)) throw new Exception("Phone is required to delete.");
+            var success = await KlikP2PService.DeleteAliasAsync(registerPhone);
+            if (success)
+            {
+                registerSuccessMessage = "Alias unregistered successfully.";
+            }
+            else
+            {
+                registerErrorMessage = "Failed to unregister. Not found or you don't own it.";
+            }
+        }
+        catch (Exception ex)
+        {
+            registerErrorMessage = ex.Message;
+        }
+        finally
+        {
+            isRegistering = false;
+        }
+    }
+}

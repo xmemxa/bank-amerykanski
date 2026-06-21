@@ -34,7 +34,8 @@ namespace bank.Services.ExternalPayments
                 var tokenContent = new FormUrlEncodedContent(new[]
                 {
                     new KeyValuePair<string, string>("client_id", clientId),
-                    new KeyValuePair<string, string>("client_secret", clientSecret)
+                    new KeyValuePair<string, string>("client_secret", clientSecret),
+                    new KeyValuePair<string, string>("grant_type", "client_credentials")
                 });
                 tokenRequest.Content = tokenContent;
 

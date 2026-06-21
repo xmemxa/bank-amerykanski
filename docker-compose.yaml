@@ -22,7 +22,7 @@ services:
     environment:
       - ExternalPayments__FedNowApiUrl=http://host.docker.internal:8770
       - ExternalPayments__RtpApiUrl=http://host.docker.internal:8000
-      - ExternalPayments__SwiftApiUrl=http://host.docker.internal:3001
+      - ExternalPayments__SwiftApiUrl=http://host.docker.internal:3000
       - ExternalPayments__SwiftClientId=bank-usbkus01
       - ExternalPayments__SwiftClientSecret=secret-usbkus01
       - ExternalPayments__AchApiUrl=http://host.docker.internal:8310

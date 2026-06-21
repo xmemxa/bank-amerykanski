@@ -37,7 +37,7 @@
                     <option value="ACH">ACH Transfer (1-3 days, Free)</option>
                     <option value="FedNow">FedNow Instant (Instant, $0.50 fee)</option>
                     <option value="RTP">RTP System (Instant, Free)</option>
-                    <option value="SWIFT">SWIFT International ($45 fee)</option>
+                    <option value="SWIFT">SWIFT International</option>
                 </InputSelect>
             </div>
 
@@ -98,6 +98,14 @@
                     <div class="form-group">
                         <label class="form-label">Country</label>
                         <InputText class="form-input" @bind-Value="model.Country" placeholder="e.g. United Kingdom" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fee Handling (Charge Bearer)</label>
+                        <InputSelect class="form-select" @bind-Value="model.ChargeBearer">
+                            <option value="DEBT">OUR (DEBT) - Sender pays all fees</option>
+                            <option value="CRED">BEN (CRED) - Receiver pays all fees</option>
+                            <option value="SHAR">SHA (SHAR) - Shared fees</option>
+                        </InputSelect>
                     </div>
                 }
 

@@ -7,18 +7,18 @@ namespace bank.Services.ExternalPayments
 {
     public class SwiftService
     {
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<SwiftService> _logger;
 
-        public SwiftService(HttpClient httpClient, IConfiguration configuration, ILogger<SwiftService> logger)
+        public SwiftService(IHttpClientFactory httpClientFactory, IConfiguration configuration, ILogger<SwiftService> logger)
         {
-            _httpClient = httpClient;
+            _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
         }
 
-        public async Task<(bool Success, string ErrorMessage)> SendSwiftTransferAsync(TransferRequestDto request, string currency)
+        public async Task<(bool Success, string ErrorMessage, string Uetr)> SendSwiftTransferAsync(TransferRequestDto request, string currency, decimal targetAmount)
         {
             try
             {
@@ -38,12 +38,13 @@ namespace bank.Services.ExternalPayments
                 });
                 tokenRequest.Content = tokenContent;
 
-                var tokenResponse = await _httpClient.SendAsync(tokenRequest);
+                var httpClient = _httpClientFactory.CreateClient();
+                var tokenResponse = await httpClient.SendAsync(tokenRequest);
                 if (!tokenResponse.IsSuccessStatusCode)
                 {
                     var errorMsg = await tokenResponse.Content.ReadAsStringAsync();
                     _logger.LogError("Failed to get SWIFT auth token: {Error}", errorMsg);
-                    return (false, "Auth failure with SWIFT network");
+                    return (false, "Auth failure with SWIFT network", string.Empty);
                 }
 
                 var tokenResponseString = await tokenResponse.Content.ReadAsStringAsync();
@@ -74,10 +75,10 @@ namespace bank.Services.ExternalPayments
         <EndToEndId>NOTPROVIDED</EndToEndId>
         <UETR>{uetr}</UETR>
       </PmtId>
-      <IntrBkSttlmAmt Ccy=""{currency}"">{request.Amount:0.00}</IntrBkSttlmAmt>
+      <IntrBkSttlmAmt Ccy=""{currency}"">{targetAmount:0.00}</IntrBkSttlmAmt>
       <IntrBkSttlmDt>{date}</IntrBkSttlmDt>
-      <InstdAmt Ccy=""{currency}"">{request.Amount:0.00}</InstdAmt>
-      <ChrgBr>SHAR</ChrgBr>
+      <InstdAmt Ccy=""{currency}"">{targetAmount:0.00}</InstdAmt>
+      <ChrgBr>{request.ChargeBearer}</ChrgBr>
       <InstgAgt>
         <FinInstnId><BICFI>{senderBic}</BICFI></FinInstnId>
       </InstgAgt>
@@ -113,11 +114,11 @@ namespace bank.Services.ExternalPayments
                 xmlRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 xmlRequest.Content = new StringContent(xmlPayload, Encoding.UTF8, "application/xml");
 
-                var xmlResponse = await _httpClient.SendAsync(xmlRequest);
+                var xmlResponse = await httpClient.SendAsync(xmlRequest);
                 if (xmlResponse.IsSuccessStatusCode)
                 {
                     _logger.LogInformation("SWIFT transfer accepted by network.");
-                    return (true, string.Empty);
+                    return (true, string.Empty, uetr);
                 }
                 else
                 {
@@ -128,17 +129,17 @@ namespace bank.Services.ExternalPayments
                         var errorJson = JsonDocument.Parse(responseBody);
                         if (errorJson.RootElement.TryGetProperty("error", out var errorProp))
                         {
-                            return (false, errorProp.GetString() ?? "Unknown SWIFT error");
+                            return (false, errorProp.GetString() ?? "Unknown SWIFT error", string.Empty);
                         }
                     }
                     catch { }
-                    return (false, responseBody);
+                    return (false, responseBody, string.Empty);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Exception occurred during SWIFT transfer.");
-                return (false, "Internal server error connecting to SWIFT.");
+                return (false, "Internal server error connecting to SWIFT.", string.Empty);
             }
         }
     }

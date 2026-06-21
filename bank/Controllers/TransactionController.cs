@@ -44,7 +44,17 @@ namespace bank.Controllers
 
             decimal feeAmount = 0;
             if (request.TransactionType == "FedNow") feeAmount = 0.50m;
-            else if (request.TransactionType == "SWIFT") feeAmount = 45.00m;
+            else if (request.TransactionType == "SWIFT") 
+            {
+                if (request.ChargeBearer == "DEBT" || request.ChargeBearer == "SHAR")
+                {
+                    feeAmount = Math.Round(request.Amount * 0.0035m, 2);
+                }
+                else
+                {
+                    feeAmount = 0m;
+                }
+            }
 
             if (sourceAccount.Balance < (request.Amount + feeAmount))
                 return BadRequest(new { Message = "Insufficient funds in the source account including fees." });
@@ -213,13 +223,32 @@ namespace bank.Controllers
                     }
                     else if (request.TransactionType == "SWIFT")
                     {
-                        // Injected locally from HttpContext to avoid breaking method signature if user calls without it
                         var swiftService = HttpContext.RequestServices.GetRequiredService<bank.Services.ExternalPayments.SwiftService>();
-                        var swiftResult = await swiftService.SendSwiftTransferAsync(request, "PLN");
+                        
+
+
+                        string targetCurrency = "USD";
+                        decimal exchangeRate = 1.0m;
+                        
+                        if (request.TargetRoutingNumber?.StartsWith("UK") == true) { targetCurrency = "GBP"; exchangeRate = 1.25m; }
+                        else if (request.TargetRoutingNumber?.StartsWith("PL") == true) { targetCurrency = "PLN"; exchangeRate = 0.25m; }
+                        else if (request.TargetRoutingNumber?.StartsWith("DE") == true || request.TargetRoutingNumber?.StartsWith("EU") == true) { targetCurrency = "EUR"; exchangeRate = 1.10m; }
+                        
+                        decimal targetAmount = Math.Round(request.Amount / exchangeRate, 2);
+
+                        var swiftResult = await swiftService.SendSwiftTransferAsync(request, targetCurrency, targetAmount);
                         
                         if (!swiftResult.Success)
                             return BadRequest(new { Message = $"SWIFT rejected: {swiftResult.ErrorMessage}" });
                             
+
+                        var corrAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.AccountNumber == $"CORR-{request.TargetRoutingNumber}");
+                        if (corrAccount != null)
+                        {
+                            corrAccount.Balance += request.Amount;
+                        }
+                        
+                        endToEndIdForTransaction = swiftResult.Uetr;
                         success = true;
                     }
                     else
@@ -279,10 +308,11 @@ namespace bank.Controllers
                     TransactionId = transactionRecord.Id
                 });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine($"[TransactionController] Exception during transfer: {ex}");
                 await transaction.RollbackAsync();
-                return StatusCode(500, new { Message = "An internal error occurred during transfer." });
+                return StatusCode(500, new { Message = "An internal error occurred during transfer.", Error = ex.Message });
             }
         }
 

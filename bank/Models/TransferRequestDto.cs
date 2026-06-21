@@ -28,5 +28,6 @@ namespace bank.Models
         public string? Country { get; set; }
         public string? RecipientName { get; set; }
         public string? RecipientAddress { get; set; }
+        public string ChargeBearer { get; set; } = "DEBT";
     }
 }

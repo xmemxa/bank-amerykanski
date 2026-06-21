@@ -96,6 +96,41 @@ namespace bank.Data
                 context.Users.Add(admin);
             }
 
+            var swiftUser = context.Users.FirstOrDefault(u => u.Username == "swift_system");
+            if (swiftUser == null)
+            {
+                swiftUser = new User
+                {
+                    Id = Guid.NewGuid(),
+                    FirstName = "SWIFT",
+                    LastName = "Correspondent",
+                    Username = "swift_system",
+                    Email = "swift@bank.com",
+                    SocialSecurityNumber = "SWIFT-SYS",
+                    PhoneNumber = "SWIFT-SYS",
+                    Address = "SWIFT Network",
+                    Role = "System",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("swift123")
+                };
+                context.Users.Add(swiftUser);
+
+
+                string[] correspondentBics = { "PLBKPL01XXX", "PLBKPL02XXX", "UKBKGB01XXX", "UKBKGB02XXX", "DEBKDE01XXX", "EUBKFR01XXX", "BANKDEXX", "BANKDEXXXXX" };
+                foreach (var bic in correspondentBics)
+                {
+                    context.Accounts.Add(new Account
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = swiftUser.Id,
+                        AccountNumber = $"CORR-{bic}",
+                        RoutingNumber = "SWIFT",
+                        Balance = 1000000.00m,
+                        Currency = "USD",
+                        AccountType = "Correspondent"
+                    });
+                }
+            }
+
             context.SaveChanges();
         }
     }

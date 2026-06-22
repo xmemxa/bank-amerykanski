@@ -100,6 +100,15 @@
                                     {
                                         <span class="badge badge-pending">Pending</span>
                                     }
+                                    else if (t.Status == "AML_HOLD")
+                                    {
+                                        <span class="badge badge-failed" style="background-color: orange; color: white;">AML Hold</span>
+                                        <button class="btn btn-sm btn-primary" style="margin-left: 5px; padding: 2px 8px; font-size: 0.8em;" @onclick="() => OpenAmlModal(t.Id)">Explain</button>
+                                    }
+                                    else if (t.Status == "AML_EXPLAINED")
+                                    {
+                                        <span class="badge badge-info">AML In Review</span>
+                                    }
                                     else
                                     {
                                         <span class="badge badge-failed">@t.Status</span>
@@ -119,6 +128,26 @@
             }
         </div>
     </div>
+
+    <!-- AML Explanation Modal -->
+    @if (showAmlModal)
+    {
+        <div class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+            <div class="modal-content" style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 2rem; border-radius: 8px; width: 400px; max-width: 90%; box-shadow: var(--shadow-lg);">
+                <h3 style="margin-top: 0; color: var(--text-primary);">AML Review Required</h3>
+                <p style="color: var(--text-secondary);">Your transaction has been flagged by our compliance system. Please provide a brief explanation for this transfer to proceed.</p>
+                <textarea class="form-input" rows="4" @bind="amlExplanationText" placeholder="E.g., Payment for freelance design work..."></textarea>
+                <div style="margin-top: 1rem; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn btn-ghost" @onclick="CloseAmlModal" disabled="@isSubmittingAml">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SubmitAmlExplanation" disabled="@isSubmittingAml">Submit Explanation</button>
+                </div>
+                @if (amlError != null)
+                {
+                    <div style="color: var(--accent-red); margin-top: 10px; font-size: 0.9em;">@amlError</div>
+                }
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -131,6 +160,65 @@
     private string? errorMessage;
     private List<TransactionHistoryItem> allTransactions = new();
     private List<TransactionHistoryItem> filteredTransactions = new();
+
+    private bool showAmlModal = false;
+    private Guid? amlTransactionId = null;
+    private string amlExplanationText = "";
+    private bool isSubmittingAml = false;
+    private string? amlError = null;
+
+    private void OpenAmlModal(Guid id)
+    {
+        amlTransactionId = id;
+        amlExplanationText = "";
+        amlError = null;
+        showAmlModal = true;
+    }
+
+    private void CloseAmlModal()
+    {
+        showAmlModal = false;
+        amlTransactionId = null;
+    }
+
+    private async Task SubmitAmlExplanation()
+    {
+        if (amlTransactionId == null) return;
+        isSubmittingAml = true;
+        amlError = null;
+
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+
+            var request = new { Explanation = amlExplanationText };
+            var response = await client.PostAsJsonAsync($"api/transaction/explain-aml/{amlTransactionId}", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                CloseAmlModal();
+                await LoadData(); // Reload the history
+            }
+            else
+            {
+                amlError = "Submission failed.";
+            }
+        }
+        catch (Exception)
+        {
+            amlError = "A network error occurred.";
+        }
+        finally
+        {
+            isSubmittingAml = false;
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

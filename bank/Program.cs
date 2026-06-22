@@ -101,6 +101,7 @@ builder.Services.AddScoped<bank.Services.ExternalPayments.FedNowService>();
 builder.Services.AddHttpClient<bank.Services.ExternalPayments.CardService>();
 builder.Services.AddHttpClient<bank.Services.Klik.KlikService>();
 builder.Services.AddHttpClient<bank.Services.Klik.KlikP2PService>();
+builder.Services.AddScoped<bank.Services.AmlService>();
 builder.Services.AddHostedService<bank.Services.ExternalPayments.RtpRegistrationService>();
 builder.Services.AddHostedService<bank.Services.ExternalPayments.PaymentPollingBackgroundService>();
 

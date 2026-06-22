@@ -39,7 +39,7 @@ namespace bank.Controllers
             if (sourceAccount == null)
                 return NotFound(new { Message = "Source account not found." });
 
-            if (sourceAccount.UserId != userId)
+            if (sourceAccount.UserId != userId && HttpContext.Items["SkipAml"] == null)
                 return StatusCode(403, new { Message = "You do not have permission to transfer from this account." });
 
             if (sourceAccount.AccountType == "Junior")
@@ -60,6 +60,48 @@ namespace bank.Controllers
                 await _context.SaveChangesAsync();
 
                 return Ok(new { Message = "Transfer requested and is pending parent approval." });
+            }
+
+            if (HttpContext.Items["SkipAml"] == null)
+            {
+                var amlService = HttpContext.RequestServices.GetRequiredService<bank.Services.AmlService>();
+                var amlResult = await amlService.EvaluateTransactionAsync(sourceAccount.Id, request);
+
+                if (amlResult.Action == bank.Services.AmlAction.Block)
+                {
+                    var amlTx = new Transaction
+                    {
+                        Id = Guid.NewGuid(),
+                        FromAccountId = sourceAccount.Id,
+                        Amount = request.Amount,
+                        Description = !string.IsNullOrEmpty(request.Description) ? $"AML BLOCKED: {request.Description}" : "AML BLOCKED Transfer",
+                        Status = "FAILED",
+                        Timestamp = DateTime.UtcNow,
+                        TransactionType = request.TransactionType,
+                        TransferRequestJson = System.Text.Json.JsonSerializer.Serialize(request)
+                    };
+                    _context.Transactions.Add(amlTx);
+                    await _context.SaveChangesAsync();
+                    
+                    return BadRequest(new { Message = $"Transaction permanently blocked by AML security system. Reason: {amlResult.Details} (Score: {amlResult.Score})" });
+                }
+                else if (amlResult.Action == bank.Services.AmlAction.Review)
+                {
+                    var amlTx = new Transaction
+                    {
+                        Id = Guid.NewGuid(),
+                        FromAccountId = sourceAccount.Id,
+                        Amount = request.Amount,
+                        Description = !string.IsNullOrEmpty(request.Description) ? $"AML HOLD: {request.Description}" : "AML HOLD Transfer",
+                        Status = "AML_HOLD",
+                        Timestamp = DateTime.UtcNow,
+                        TransactionType = request.TransactionType,
+                        TransferRequestJson = System.Text.Json.JsonSerializer.Serialize(request)
+                    };
+                    _context.Transactions.Add(amlTx);
+                    await _context.SaveChangesAsync();
+                    return Ok(new { Message = "Transaction blocked by AML for review. Please provide an explanation.", AmlHold = true, TransactionId = amlTx.Id });
+                }
             }
 
             decimal feeAmount = 0;
@@ -643,6 +685,88 @@ namespace bank.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Transaction rejected." });
+        }
+
+        public class AmlExplanationDto
+        {
+            public string Explanation { get; set; } = "";
+        }
+
+        [HttpGet("aml-pending")]
+        [Authorize(Roles = "Employee,Admin")]
+        public async Task<IActionResult> GetAmlPending()
+        {
+            var txs = await _context.Transactions
+                .Include(t => t.FromAccount)
+                .ThenInclude(a => a.User)
+                .Where(t => t.Status == "AML_HOLD" || t.Status == "AML_EXPLAINED")
+                .OrderByDescending(t => t.Timestamp)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.Amount,
+                    t.Currency,
+                    t.Timestamp,
+                    t.Status,
+                    t.Description,
+                    t.AmlExplanation,
+                    t.TransactionType,
+                    CustomerName = t.FromAccount != null && t.FromAccount.User != null ? t.FromAccount.User.FirstName + " " + t.FromAccount.User.LastName : "Unknown"
+                })
+                .ToListAsync();
+
+            return Ok(txs);
+        }
+
+        [HttpPost("explain-aml/{id}")]
+        public async Task<IActionResult> ExplainAml(Guid id, [FromBody] AmlExplanationDto request)
+        {
+            var tx = await _context.Transactions.FirstOrDefaultAsync(t => t.Id == id && t.Status == "AML_HOLD");
+            if (tx == null) return NotFound(new { Message = "Transaction not found or not in AML hold." });
+            
+            tx.AmlExplanation = request.Explanation;
+            tx.Status = "AML_EXPLAINED";
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Explanation submitted." });
+        }
+
+        [HttpPost("approve-aml/{id}")]
+        [Authorize(Roles = "Employee,Admin")]
+        public async Task<IActionResult> ApproveAml(Guid id, 
+            [FromServices] bank.Services.ExternalPayments.AchService achService,
+            [FromServices] bank.Services.ExternalPayments.FedNowService fedNowService,
+            [FromServices] bank.Services.ExternalPayments.RtpService rtpService)
+        {
+            var tx = await _context.Transactions
+                .Include(t => t.FromAccount)
+                .FirstOrDefaultAsync(t => t.Id == id && (t.Status == "AML_EXPLAINED" || t.Status == "AML_HOLD"));
+                
+            if (tx == null) return NotFound(new { Message = "Transaction not found." });
+            
+            var dto = System.Text.Json.JsonSerializer.Deserialize<TransferRequestDto>(tx.TransferRequestJson ?? "{}");
+            if (dto == null) return BadRequest(new { Message = "Invalid request data." });
+
+            // Delete the AML hold placeholder
+            _context.Transactions.Remove(tx);
+            await _context.SaveChangesAsync();
+
+            // Setup HttpContext for Transfer method
+            HttpContext.Items["SkipAml"] = true;
+
+            // Execute the original Transfer method
+            return await Transfer(dto, achService, fedNowService, rtpService);
+        }
+
+        [HttpPost("reject-aml/{id}")]
+        [Authorize(Roles = "Employee,Admin")]
+        public async Task<IActionResult> RejectAml(Guid id)
+        {
+            var tx = await _context.Transactions.FirstOrDefaultAsync(t => t.Id == id && (t.Status == "AML_EXPLAINED" || t.Status == "AML_HOLD"));
+            if (tx == null) return NotFound(new { Message = "Transaction not found." });
+            
+            tx.Status = "Failed";
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Transaction rejected by AML review." });
         }
     }
 }

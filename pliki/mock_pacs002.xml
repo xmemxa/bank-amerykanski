@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.002.001.10">
+	<FIToFIPmtStsRpt>
+		<GrpHdr>
+			<MsgId>MSG-STATUS-0001</MsgId> <!-- Unikalne ID tej wiadomości statusowej -->
+			<CreDtTm>2026-05-27T12:00:00</CreDtTm>
+			<InstgAgt>
+				<FinInstnId>
+					<Nm>Baguette bank</Nm> 
+				</FinInstnId>
+			</InstgAgt>
+			<InstdAgt>
+				<FinInstnId>
+					<Nm>Leek bank</Nm> 
+				</FinInstnId>
+			</InstdAgt>
+		</GrpHdr>
+		<OrgnlGrpInfAndSts>
+			<OrgnlMsgId>MSG-ORIGINAL-0001</OrgnlMsgId> 
+			<GrpSts>ACCP</GrpSts> 
+		</OrgnlGrpInfAndSts>
+		<TxInfAndSts>
+			<!-- TUTAJ WKLEJ SKOPIOWANE EndToEndId Z ORYGINALNEGO PRZELEWU -->
+			<OrgnlEndToEndId>E2E-b1ddc345d47542629ccb769fff1b5eeb</OrgnlEndToEndId> 
+			
+			<TxSts>ACCP</TxSts> <!-- ACCP = Zaakceptowano -->
+			<AcctSvcrRef>REF-STATUS-0001</AcctSvcrRef> 
+			<OrgnlTxRef>
+				<!-- TUTAJ WPISZ KWOTĘ PRZELEWU -->
+				<IntrBkSttlmAmt Ccy="USD">20.00</IntrBkSttlmAmt> 
+				<DbtrAgt> 
+					<FinInstnId>
+						<ClrSysMmbId>
+							<nm>American Bank</nm>
+							<MmbId>040104018</MmbId> <!-- Nasz RTN -->
+						</ClrSysMmbId>
+					</FinInstnId>
+				</DbtrAgt>
+				<Dbtr>
+					<Nm>Nadawca</Nm> 
+				</Dbtr>
+				<DbtrAcct>
+					<Id>
+						<Othr>
+							<Id>1111111112</Id>
+                            <SchmeNm><Prtry>US_ACCT</Prtry></SchmeNm>
+						</Othr>
+					</Id>
+				</DbtrAcct>
+				<CdtrAgt>
+					<FinInstnId>
+						<ClrSysMmbId>
+							<nm>Leek bank</nm>
+							<MmbId>010101012</MmbId> <!-- RTN docelowy -->
+						</ClrSysMmbId>
+					</FinInstnId>
+				</CdtrAgt>
+				<Cdtr>
+					<Nm>Odbiorca</Nm>
+				</Cdtr>
+				<CdtrAcct>
+					<Id>
+						<Othr>
+							<Id>123456789</Id>
+                            <SchmeNm><Prtry>US_ACCT</Prtry></SchmeNm>
+						</Othr>
+					</Id>
+				</CdtrAcct>
+			</OrgnlTxRef>
+		</TxInfAndSts>
+	</FIToFIPmtStsRpt>
+</Document>

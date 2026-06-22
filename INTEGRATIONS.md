@@ -66,6 +66,95 @@ System Klik działa w trybie natychmiastowym i potrafi łączyć użytkowników 
 *   **ACH:** Używa tradycyjnych procesów SFTP do zrzutu dziennych paczek `.txt` zgodnych z formatem NACHA. Pliki przesyłane są przez protokół SSH do lokalnego kontenera `fedsystems-sftp`.
 *   **Co i gdzie zmieniać?** Moduły za to odpowiedzialne to `FedNowService.cs` i `AchService.cs`. Tam zbudowane są handlery do bibliotek sFTP.
 
+## 6. Lista kroków - Uruchomienie na nowym komputerze
+
+Poniżej znajduje się skrócona lista konkretnych zmian w kodzie/konfiguracji, które musisz wykonać na świeżym środowisku, aby spiąć wszystkie mikroserwisy.
+
+### A. System Kart Płatniczych (`Karty-Platnicze-Aplikacje-Biznesowe`)
+
+**W repozytorium systemu kart (`Karty-Platnicze-Aplikacje-Biznesowe/docker-compose.yaml`):**
+Jeśli pobierasz z chmury świeżą, "czystą" wersję systemu kart, musisz dostosować ją do naszego banku, upewniając się, że kontener widzi nasz bank w sieci zewnętrznej:
+
+1. Otwórz plik `docker-compose.yaml` w głównym katalogu `Karty-Platnicze-Aplikacje-Biznesowe`.
+2. Zmień URL webhooka banku na właściwy port i ścieżkę API naszego głównego backendu:
+   ```yaml
+   BANK_CAPTURE_URL_US_BANK_A: "http://us-bank-a:8080/api/v1"
+   ```
+3. Zmień typ sieci aplikacyjnej (`cards-backend` lub dodaj osobną sieć w której działa bank) na zewnętrzną:
+   ```yaml
+   networks:
+     cards-backend:
+       external: true
+   ```
+
+### B. KLIK-payments (Przelewy P2P i BLIK)
+
+**W repozytorium KLIK (`KLIK-payments`):**
+1. Wygeneruj nowy klucz API (skryptem lub w panelu admina) i oblicz jego hash (SHA-256).
+2. Dodaj bank bezpośrednio do bazy danych KLIK (np. używając polecenia w terminalu):
+   ```bash
+   docker exec -it klik-payments-db-1 psql -U klik -d klik
+   ```
+3. Wykonaj zapytanie SQL, uzupełniając swoje dane:
+   ```sql
+   INSERT INTO banks_bank (id, created_at, updated_at, name, api_key_hash, zone, currency, debt_limit, active, bic, settlement_iban, fednow_routing_number, fednow_account_number, webhook_url, c2b_enabled, p2p_enabled, p2p_lookup_fee, cheques_enabled, cheques_webhook_url, recurring_enabled, recurring_webhook_url)
+   VALUES (gen_random_uuid(), NOW(), NOW(), 'BANK_AMERYKANSKI', 'TUTAJ_TWÓJ_HASH_SHA256', 'US', 'USD', 1000000, true, '', '', '040104018', 'TUTAJ_NUMER_KONTA', 'http://host.docker.internal:8080/webhook', true, true, 0, false, '', false, '');
+   ```
+
+**W repozytorium banku (`bank-amerykanski/docker-compose.yaml`):**
+1. Otwórz plik `docker-compose.yaml` w głównym katalogu Banku Amerykańskiego.
+2. W sekcji `environment` kontenera backendowego wklej wygenerowany klucz (czystym tekstem, bez hashowania):
+   ```yaml
+   - Klik__ApiKey=twój_niezaszyfrowany_klucz
+   ```
+
+### C. FedSystems (FedNow, RTP, ACH)
+
+**W repozytorium testowego banku B (`us-bank-system/docker-compose.yaml`):**
+1. Otwórz plik `docker-compose.yaml` w głównym katalogu `us-bank-system`.
+2. Zaktualizuj numery rozliczeniowe i porty, aby banki nie kolidowały ze sobą (podmień poniższe wartości na swoje):
+   ```yaml
+   - Bank__RoutingNumber=010101012
+   - PaymentSessions__FedNow__BankRtn=010101012
+   - PaymentSessions__FedNow__BankLegalName=Bank B
+   - PaymentSessions__Rtp__BankCode=bank-b
+   - PaymentSessions__Rtp__BankRtn=010101012
+   - PaymentSessions__Rtp__BankLegalName=Bank B
+   - Ach__RoutingNumber=010101012
+   - Ach__LegalName=Bank B
+   - Integrations__FedNowMqUrl=http://host.docker.internal:8771
+   ```
+3. **Konfiguracja kluczy SFTP dla ACH:** W sekcji `environment` musisz określić nazwę użytkownika (np. `leek-bank`) oraz wyłączyć sprawdzanie kluczy hosta, jeśli stawiasz środowisko od zera i klucze serwera SFTP uległy zmianie:
+   ```yaml
+   - Ach__Sftp__Username=leek-bank
+   - Ach__Sftp__AllowUncheckedFingerprint=true
+   ```
+4. **Wstrzyknięcie klucza prywatnego (wolumeny):** Kontener banku musi otrzymać fizyczny klucz kryptograficzny `id_rsa`. Upewnij się, że w sekcji `volumes` masz podpiętą właściwą ścieżkę z Twojego dysku:
+   ```yaml
+   volumes:
+     - ../payment-settlement-systems/FedSystems/SFTP_Keys/leek-bank:/sftp_keys:ro
+   ```
+   *(Pamiętaj, że w tym katalogu na dysku, np. `.../FedSystems/SFTP_Keys/leek-bank`, musi realnie leżeć pobrany od operatora plik `id_rsa`)*
+
+### D. SWIFT
+
+**W repozytorium systemu SWIFT (`SWIFT-Aplikacje-Biznesowe`):**
+Jeśli uruchamiasz czyste środowisko SWIFT, musisz wskazać mu lokalizację naszego banku:
+1. Otwórz plik `app/core/config.py`.
+2. W słowniku `BANK_METADATA` zlokalizuj wpis `"USBKUS01XXX"` (przypisany naszemu bankowi) i podmień go na:
+   ```python
+   "USBKUS01XXX": {"name": "Bank Amerykanski", "country": "US", "url": "http://host.docker.internal:8080/api/swift/receive", "external": True},
+   ```
+   *(Najważniejsze zmiany to `url` webhooka skierowany na port `8080` oraz włączenie flagi `"external": True`)*
+
+**W repozytorium banku (`bank-amerykanski/docker-compose.yaml`):**
+1. Otwórz plik `docker-compose.yaml` w głównym katalogu Banku Amerykańskiego.
+2. Sprawdź, czy dane dostępowe pokrywają się z lokalną instancją zewnętrznej bramki `swift-app`:
+   ```yaml
+   - ExternalPayments__SwiftClientId=bank-usbkus01
+   - ExternalPayments__SwiftClientSecret=secret-usbkus01
+   ```
+
 ## Konfiguracja Zmienna dla Środowisk Integracyjnych
 
 Jeśli którykolwiek z serwerów innej grupy zmieni swój port podczas uruchomienia z Docker'a, w `Bank Amerykańskim` musisz wejść do pliku `docker-compose.yaml` (w katalogu głównym) i odszukać sekcję zmiennych konfiguracyjnych w kontenerze `backend`:

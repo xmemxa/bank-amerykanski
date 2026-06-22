@@ -98,6 +98,7 @@ builder.Services.AddScoped<bank.Services.ExternalPayments.RtpRegistrationService
 builder.Services.AddScoped<bank.Services.ExternalPayments.RtpService>();
 builder.Services.AddScoped<bank.Services.ExternalPayments.SwiftService>();
 builder.Services.AddScoped<bank.Services.ExternalPayments.FedNowService>();
+builder.Services.AddHttpClient<bank.Services.ExternalPayments.CardService>();
 builder.Services.AddHttpClient<bank.Services.Klik.KlikService>();
 builder.Services.AddHttpClient<bank.Services.Klik.KlikP2PService>();
 builder.Services.AddHostedService<bank.Services.ExternalPayments.RtpRegistrationService>();

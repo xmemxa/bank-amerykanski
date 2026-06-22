@@ -37,6 +37,11 @@ services:
       - "8080:8080"
     volumes:
       - ./bank/Keys:/app/Keys
+    networks:
+      default: {}
+      clearing-us-a-karty:
+        aliases:
+          - us-bank-a
 
   # Frontend React wyłączony – UI jest teraz serwowany przez Blazor w kontenerze backendu
   # frontend:
@@ -51,3 +56,7 @@ services:
   #     - /app/node_modules
   #   depends_on:
   #     - backend
+
+networks:
+  clearing-us-a-karty:
+    external: true

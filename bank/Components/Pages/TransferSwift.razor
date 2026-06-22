@@ -180,9 +180,9 @@
                 errorMessage = error.TryGetProperty("message", out var msg) ? msg.GetString() : "Transfer failed. Please check your details.";
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            errorMessage = "A network error occurred. Please try again.";
+            errorMessage = "A system error occurred. Please try again later.";
         }
         finally
         {

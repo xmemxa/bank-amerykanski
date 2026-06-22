@@ -12,6 +12,7 @@ namespace bank.Data
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Account> Accounts { get; set; } = null!;
         public DbSet<Transaction> Transactions { get; set; }
+        public DbSet<Card> Cards { get; set; }
         public DbSet<KlikPendingAuthorization> KlikPendingAuthorizations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -45,6 +46,13 @@ namespace bank.Data
                 .WithMany(a => a.ReceivedTransactions)
                 .HasForeignKey(t => t.ToAccountId)
                 .OnDelete(DeleteBehavior.Restrict);
+            
+            // Relacja Account -> Card
+            modelBuilder.Entity<Card>()
+                .HasOne(c => c.Account)
+                .WithMany(a => a.Cards)
+                .HasForeignKey(c => c.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
             
             modelBuilder.Entity<Account>()
                 .HasIndex(a => a.AccountNumber)

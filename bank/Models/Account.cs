@@ -13,6 +13,7 @@ namespace bank.Models
         public string RoutingNumber { get; set; } = "123456789"; // Routing Number banku
         public string AccountNumber { get; set; } = string.Empty;
         public decimal Balance { get; set; } = 0;
+        public decimal HeldBalance { get; set; } = 0; // Zablokowane środki (authorization hold)
         public string Currency { get; set; } = "USD"; // Domyślna waluta
         
         public string AccountType { get; set; } = "Standard"; // np. "Standard", "Junior"
@@ -28,5 +29,8 @@ namespace bank.Models
         // Navigation properties dla transakcji
         public ICollection<Transaction> SentTransactions { get; set; } = new List<Transaction>();
         public ICollection<Transaction> ReceivedTransactions { get; set; } = new List<Transaction>();
+        
+        // Navigation property dla kart p,atniczych
+        public ICollection<Card> Cards { get; set; } = new List<Card>();
     }
 }

@@ -1,0 +1,441 @@
+@page "/cards"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject bank.Data.BankDbContext DbContext
+@inject bank.Services.ExternalPayments.CardService CardService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using bank.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+
+<PageTitle>Payment Cards</PageTitle>
+
+<div class="cards-page">
+    <div class="page-header">
+        <h1 class="page-title">Payment Cards</h1>
+        <p class="page-subtitle">Manage your physical and virtual cards</p>
+    </div>
+
+    @if (_accounts == null)
+    {
+        <div class="empty-state">
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Loading your accounts...
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_newCardMessage))
+        {
+            <div class="success-alert">
+                <h4>@_newCardMessage</h4>
+                <button class="btn btn-outline-light btn-sm mt-3" @onclick="ClearNewCardMessage">Dismiss</button>
+            </div>
+        }
+
+        @foreach (var account in _accounts)
+        {
+            <div class="account-container">
+                <div class="account-header">
+                    <div class="account-title">Account ending in @(account.AccountNumber.Length >= 4 ? account.AccountNumber.Substring(account.AccountNumber.Length - 4) : account.AccountNumber)</div>
+                    <div class="account-balance">@account.Balance.ToString("N2") <span style="font-size: 1rem; color: #a0a0a0;">@account.Currency</span></div>
+                </div>
+
+                @if (account.Cards.Any())
+                {
+                    <div class="cards-grid">
+                        @foreach (var card in account.Cards)
+                        {
+                            var isVirtual = card.Type.Equals("VIRTUAL", StringComparison.OrdinalIgnoreCase);
+                            <div class="credit-card @(card.Type.ToLower())">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                                    <div class="card-type-label">
+                                        @if (card.Type == "PREPAID" && _prepaidBalances.ContainsKey(card.CardToken))
+                                        {
+                                            <span>@card.Type Card - $@_prepaidBalances[card.CardToken].ToString("F2")</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@card.Type Card</span>
+                                        }
+                                    </div>
+                                    @if (card.Status != "REQUESTED")
+                                    {
+                                        <div class="card-status @(card.Status.ToLower())" style="margin-top: 0;">
+                                            @card.Status
+                                        </div>
+                                    }
+                                </div>
+                                <div class="card-chip"></div>
+                                @if (_revealedCards.ContainsKey(card.Id))
+                                {
+                                    <div class="card-number" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                        <span>@_revealedCards[card.Id].full_pan</span>
+                                        <span style="font-size: 0.9rem; letter-spacing: 2px;">CVV: @_revealedCards[card.Id].cvv</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="card-number">@card.MaskedPan</div>
+                                }
+                                <div class="card-footer-info">
+                                    <div>
+                                        <div class="card-expiry-label">Valid Thru</div>
+                                        <div class="card-expiry">@card.ExpiryMonth.ToString("D2")/@card.ExpiryYear</div>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; width: 50%;">
+                                        @if (_revealedCards.ContainsKey(card.Id))
+                                        {
+                                            <button class="btn-reveal" style="margin-top: 0; width: 100%;" @onclick="() => HideCard(card.Id)">Hide Details</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn-reveal" style="margin-top: 0; width: 100%;" @onclick="() => RevealCard(card.Id, card.CardToken)">Show Details</button>
+                                        }
+
+                                        @if (card.Status == "ACTIVE")
+                                        {
+                                            <button class="btn-reveal" style="margin-top: 0; width: 100%; background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4);" @onclick='() => UpdateCardStatus(card.Id, card.CardToken, "BLOCKED")'>Block</button>
+                                        }
+                                        else if (card.Status == "BLOCKED")
+                                        {
+                                            <button class="btn-reveal" style="margin-top: 0; width: 100%; background: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.4);" @onclick='() => UpdateCardStatus(card.Id, card.CardToken, "ACTIVE")'>Unblock</button>
+                                        }
+
+                                        @if (card.Type == "PREPAID")
+                                        {
+                                            <div style="display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; width: 100%;">
+                                                <input type="number" step="0.01" min="0" @bind="_topUpAmounts[card.Id]" class="form-control form-control-sm" style="width: 80px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);" placeholder="0.00" />
+                                                <button class="btn-reveal" style="margin-top: 0; flex-grow: 1; background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.4);" @onclick='() => TopUpPrepaid(card.Id, card.CardToken, account.Id)'>Top Up</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-credit-card" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                        No cards found for this account.
+                    </div>
+                }
+
+                <div class="order-section">
+                    <div class="order-title">Order a new card</div>
+                    <div class="input-group" style="max-width: 500px;">
+                        <select class="form-select custom-select" @bind="_selectedCardType">
+                            <option value="VIRTUAL">Virtual Card</option>
+                            <option value="PHYSICAL">Physical Card</option>
+                            <option value="PREPAID">Prepaid Card</option>
+                        </select>
+                        @if (_selectedCardType == "PREPAID")
+                        {
+                            <input type="number" step="0.01" class="form-control custom-select" style="max-width: 120px;" placeholder="Amount" @bind="_initialPrepaidBalance" />
+                        }
+                        <button class="btn-order" @onclick="() => IssueCard(account.Id)" disabled="@_isProcessing">
+                            @if (_isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            }
+                            Issue Now
+                        </button>
+                    </div>
+                    @if (_errorAccountId == account.Id && !string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="error-alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i> @_errorMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<Account>? _accounts;
+    private string _selectedCardType = "VIRTUAL";
+    private bool _isProcessing = false;
+    
+    private string? _errorMessage;
+    private Guid? _errorAccountId;
+    private Dictionary<string, decimal> _prepaidBalances = new();
+    private Dictionary<Guid, decimal> _topUpAmounts = new();
+
+    private string _newCardMessage = string.Empty;
+    private string _newCardPan = string.Empty;
+    private string _newCardCvv = string.Empty;
+    private string _newCardExpiry = string.Empty;
+    private string _userId = string.Empty;
+    private decimal _initialPrepaidBalance = 0m;
+    private Dictionary<Guid, bank.Services.ExternalPayments.CardService.FullPanResponse> _revealedCards = new();
+
+    private async Task RevealCard(Guid cardId, string cardToken)
+    {
+        var response = await CardService.GetFullPanAsync(cardToken);
+        if (response != null)
+        {
+            _revealedCards[cardId] = response;
+        }
+    }
+
+    private void HideCard(Guid cardId)
+    {
+        if (_revealedCards.ContainsKey(cardId))
+        {
+            _revealedCards.Remove(cardId);
+        }
+    }
+
+    private async Task UpdateCardStatus(Guid cardId, string cardToken, string newStatus)
+    {
+        var success = await CardService.UpdateCardStatusAsync(cardToken, newStatus);
+        if (success)
+        {
+            var card = await DbContext.Cards.FindAsync(cardId);
+            if (card != null)
+            {
+                card.Status = newStatus;
+                await DbContext.SaveChangesAsync();
+                await LoadDataAsync();
+            }
+        }
+    }
+
+    private async Task TopUpPrepaid(Guid cardId, string cardToken, Guid accountId)
+    {
+        if (!_topUpAmounts.TryGetValue(cardId, out var amount) || amount <= 0) return;
+
+        var account = await DbContext.Accounts.FindAsync(accountId);
+        if (account == null || account.Balance < amount)
+        {
+            _errorMessage = "Insufficient funds for top-up.";
+            _errorAccountId = accountId;
+            return;
+        }
+
+        var success = await CardService.TopUpPrepaidAsync(cardToken, amount, account.Currency);
+        if (success)
+        {
+            account.Balance -= amount;
+            
+            var transaction = new bank.Models.Transaction
+            {
+                Id = Guid.NewGuid(),
+                FromAccountId = account.Id,
+                ToAccountId = null,
+                Amount = amount,
+                Currency = account.Currency,
+                Description = $"Prepaid Card Top-up (Card: {cardToken.Substring(0, 8)}...)",
+                TransactionType = "FEE",
+                Timestamp = DateTime.UtcNow,
+                Status = "Completed"
+            };
+            DbContext.Transactions.Add(transaction);
+            
+            DbContext.Accounts.Update(account);
+            await DbContext.SaveChangesAsync();
+            _topUpAmounts[cardId] = 0;
+            await LoadDataAsync();
+        }
+        else
+        {
+            _errorMessage = "Failed to top up card.";
+            _errorAccountId = accountId;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            var userIdString = user.FindFirst("id")?.Value;
+            if (Guid.TryParse(userIdString, out var parsedGuid))
+            {
+                _userId = parsedGuid.ToString();
+                await LoadDataAsync();
+            }
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _accounts = await DbContext.Accounts
+            .AsNoTracking()
+            .Include(a => a.Cards)
+            .Where(a => a.UserId == Guid.Parse(_userId))
+            .ToListAsync();
+            
+        foreach (var account in _accounts)
+        {
+            foreach (var card in account.Cards)
+            {
+                if (card.Type == "PREPAID")
+                {
+                    if (!_topUpAmounts.ContainsKey(card.Id)) _topUpAmounts[card.Id] = 0;
+                    var status = await CardService.GetCardStatusAsync(card.CardToken);
+                    if (status != null)
+                    {
+                        _prepaidBalances[card.CardToken] = status.balance;
+                    }
+                }
+            }
+        }
+    }
+
+    private async Task IssueCard(Guid accountId)
+    {
+        var account = await DbContext.Accounts.FindAsync(accountId);
+        if (account == null) return;
+
+        var activeCards = _accounts?.FirstOrDefault(a => a.Id == accountId)?.Cards.Where(c => c.Status != "BLOCKED" && c.Status != "CANCELLED").ToList() ?? new List<Card>();
+        if (_selectedCardType == "VIRTUAL" && activeCards.Count(c => c.Type == "VIRTUAL") >= 3)
+        {
+            _errorMessage = "You have reached the maximum limit of 3 virtual cards for this account.";
+            _errorAccountId = accountId;
+            return;
+        }
+        if (_selectedCardType == "PHYSICAL" && activeCards.Count(c => c.Type == "PHYSICAL") >= 1)
+        {
+            _errorMessage = "You have reached the maximum limit of 1 physical card for this account.";
+            _errorAccountId = accountId;
+            return;
+        }
+        if (_selectedCardType == "PREPAID" && activeCards.Count(c => c.Type == "PREPAID") >= 2)
+        {
+            _errorMessage = "You have reached the maximum limit of 2 prepaid cards for this account.";
+            _errorAccountId = accountId;
+            return;
+        }
+
+        if (_selectedCardType == "PREPAID")
+        {
+            if (_initialPrepaidBalance <= 0)
+            {
+                _errorMessage = "Initial balance must be greater than 0.";
+                _errorAccountId = accountId;
+                return;
+            }
+            if (account.Balance < _initialPrepaidBalance)
+            {
+                _errorMessage = "Insufficient funds for initial prepaid balance.";
+                _errorAccountId = accountId;
+                return;
+            }
+            account.Balance -= _initialPrepaidBalance;
+            
+            var transaction = new bank.Models.Transaction
+            {
+                Id = Guid.NewGuid(),
+                FromAccountId = account.Id,
+                ToAccountId = null,
+                Amount = _initialPrepaidBalance,
+                Currency = account.Currency,
+                Description = "Initial Prepaid Card Funding",
+                TransactionType = "FEE",
+                Timestamp = DateTime.UtcNow,
+                Status = "Completed"
+            };
+            DbContext.Transactions.Add(transaction);
+            DbContext.Accounts.Update(account);
+            await DbContext.SaveChangesAsync();
+        }
+
+        _isProcessing = true;
+        _errorMessage = string.Empty;
+        _errorAccountId = null;
+
+        try
+        {
+            var response = await CardService.IssueCardAsync(_userId.ToString(), accountId.ToString(), _selectedCardType, _selectedCardType == "PREPAID" ? _initialPrepaidBalance : 0);
+            if (response != null && !string.IsNullOrEmpty(response.Card_Token))
+            {
+                var newCard = new Card
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = accountId,
+                    CardToken = response.Card_Token,
+                    MaskedPan = response.Masked_Pan,
+                    Type = response.Card_Type,
+                    Status = response.Status,
+                    ExpiryMonth = response.Expiry_Month,
+                    ExpiryYear = response.Expiry_Year
+                };
+
+                DbContext.Cards.Add(newCard);
+                await DbContext.SaveChangesAsync();
+
+                if (response.Card_Type != "VIRTUAL")
+                {
+                    await CardService.SimulateLifecycleAsync(response.Card_Token, "PRODUCING");
+                    await CardService.SimulateLifecycleAsync(response.Card_Token, "SHIPPED");
+                    await CardService.ActivateCardAsync(response.Card_Token);
+                    newCard.Status = "ACTIVE";
+                    await DbContext.SaveChangesAsync();
+                }
+
+                _newCardMessage = "Card successfully issued!";
+                _newCardPan = response.Full_Pan;
+                _newCardCvv = response.Cvv;
+                _newCardExpiry = $"{response.Expiry_Month:D2}/{response.Expiry_Year}";
+
+                if (_selectedCardType == "PREPAID")
+                {
+                    var transaction = new Transaction
+                    {
+                        Id = Guid.NewGuid(),
+                        FromAccountId = accountId,
+                        ToAccountId = null,
+                        Amount = _initialPrepaidBalance,
+                        Description = $"Prepaid Card Top-up ({response.Masked_Pan})",
+                        Status = "Completed",
+                        Timestamp = DateTime.UtcNow,
+                        TransactionType = "CardTopUp"
+                    };
+                    DbContext.Transactions.Add(transaction);
+                    await DbContext.SaveChangesAsync();
+                }
+
+                _initialPrepaidBalance = 0;
+                await LoadDataAsync();
+            }
+            else
+            {
+                if (_selectedCardType == "PREPAID")
+                {
+                    account.Balance += _initialPrepaidBalance;
+                    await DbContext.SaveChangesAsync();
+                }
+                _errorMessage = "Failed to issue card. Please try again later.";
+                _errorAccountId = accountId;
+            }
+        }
+        catch (Exception)
+        {
+            if (_selectedCardType == "PREPAID")
+            {
+                account.Balance += _initialPrepaidBalance;
+                await DbContext.SaveChangesAsync();
+            }
+            _errorMessage = "An unexpected error occurred.";
+            _errorAccountId = accountId;
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearNewCardMessage()
+    {
+        _newCardMessage = string.Empty;
+        _newCardPan = string.Empty;
+        _newCardCvv = string.Empty;
+        _newCardExpiry = string.Empty;
+    }
+}

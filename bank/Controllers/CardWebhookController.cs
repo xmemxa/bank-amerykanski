@@ -13,10 +13,12 @@ namespace bank.Controllers
     public class CardWebhookController : ControllerBase
     {
         private readonly BankDbContext _dbContext;
+        private readonly bank.Services.ExchangeRateService _exchangeService;
 
-        public CardWebhookController(BankDbContext dbContext)
+        public CardWebhookController(BankDbContext dbContext, bank.Services.ExchangeRateService exchangeService)
         {
             _dbContext = dbContext;
+            _exchangeService = exchangeService;
         }
 
         public class AuthorizeRequest
@@ -38,18 +40,16 @@ namespace bank.Controllers
                 return Ok(new { authorization_code = (string)null, status = "DECLINED", decline_reason = "ACCOUNT_NOT_FOUND" });
             }
 
-            if (request.currency != account.Currency)
-            {
-                return Ok(new { authorization_code = (string)null, status = "DECLINED", decline_reason = "INVALID_CURRENCY" });
-            }
+            var conversion = _exchangeService.ConvertForCardTransaction(request.amount, request.currency, account.Currency);
+            var totalDeduction = conversion.totalDeduction;
 
-            if (account.Balance < request.amount)
+            if (account.Balance < totalDeduction)
             {
                 return Ok(new { authorization_code = (string)null, status = "DECLINED", decline_reason = "INSUFFICIENT_FUNDS" });
             }
 
-            account.Balance -= request.amount;
-            account.HeldBalance += request.amount;
+            account.Balance -= totalDeduction;
+            account.HeldBalance += totalDeduction;
 
             await _dbContext.SaveChangesAsync();
 
@@ -83,7 +83,11 @@ namespace bank.Controllers
                 return BadRequest(new { error = "Card not found" });
             }
 
-            if (card.PerTransactionLimit.HasValue && request.amount > card.PerTransactionLimit.Value)
+            var account = card.Account;
+            var conversion = _exchangeService.ConvertForCardTransaction(request.amount, request.currency, account.Currency);
+            var totalDeduction = conversion.totalDeduction;
+
+            if (card.PerTransactionLimit.HasValue && totalDeduction > card.PerTransactionLimit.Value)
             {
                 return BadRequest(new { error = "Per-transaction limit exceeded" });
             }
@@ -95,35 +99,36 @@ namespace bank.Controllers
                     .Where(t => t.Description.Contains($"[{card.MaskedPan}]") && t.Timestamp >= today)
                     .SumAsync(t => t.Amount);
 
-                if (dailySpent + request.amount > card.DailyLimit.Value)
+                if (dailySpent + totalDeduction > card.DailyLimit.Value)
                 {
                     return BadRequest(new { error = "Daily limit exceeded" });
                 }
             }
 
-            var account = card.Account;
-
             if (card.Type != "PREPAID")
             {
-                if (account.HeldBalance >= request.amount)
+                if (account.HeldBalance >= totalDeduction)
                 {
-                    account.HeldBalance -= request.amount;
+                    account.HeldBalance -= totalDeduction;
                 }
                 else
                 {
-                    var unheldAmount = request.amount - account.HeldBalance;
+                    var unheldAmount = totalDeduction - account.HeldBalance;
                     account.HeldBalance = 0;
                     account.Balance -= unheldAmount;
                 }
             }
+
+            string feeDetails = conversion.fee > 0 ? $", Fee: {conversion.fee} {account.Currency}" : "";
+            string currencyDetails = request.currency != account.Currency ? $" (Orig: {request.amount} {request.currency}{feeDetails})" : "";
 
             var transaction = new Transaction
             {
                 Id = Guid.Parse(request.transaction_id),
                 FromAccountId = card.Type == "PREPAID" ? null : account.Id,
                 ToAccountId = null,
-                Amount = request.amount,
-                Description = $"Card payment at {request.merchant_id} [{card.MaskedPan}]" + (card.Type == "PREPAID" ? " (Prepaid)" : ""),
+                Amount = totalDeduction,
+                Description = $"Card payment at {request.merchant_id} [{card.MaskedPan}]{currencyDetails}" + (card.Type == "PREPAID" ? " (Prepaid)" : ""),
                 Status = "Completed",
                 Timestamp = DateTime.UtcNow,
                 TransactionType = "Card"
@@ -135,44 +140,5 @@ namespace bank.Controllers
             return Ok(new { status = "SETTLED" });
         }
 
-        public class RefundRequest
-        {
-            public Guid account_id { get; set; }
-            public decimal amount { get; set; }
-            public string currency { get; set; } = string.Empty;
-            public Guid original_transaction_id { get; set; }
-            public string card_token { get; set; } = string.Empty;
-        }
-
-        [HttpPost]
-        [ActionName("refund")]
-        public async Task<IActionResult> Refund([FromBody] RefundRequest request)
-        {
-            var card = await _dbContext.Cards.Include(c => c.Account).FirstOrDefaultAsync(c => c.CardToken == request.card_token);
-            if (card == null)
-            {
-                return BadRequest(new { error = "Card not found" });
-            }
-
-            var account = card.Account;
-
-            if (card.Type != "PREPAID")
-            {
-                if (account.HeldBalance >= request.amount)
-                {
-                    account.HeldBalance -= request.amount;
-                }
-                else
-                {
-                    account.HeldBalance = 0;
-                }
-                
-                account.Balance += request.amount;
-            }
-
-            await _dbContext.SaveChangesAsync();
-
-            return Ok(new { status = "REFUNDED" });
-        }
     }
 }

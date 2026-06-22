@@ -1,8 +1,8 @@
 @page "/cards"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject bank.Data.BankDbContext DbContext
 @inject bank.Services.ExternalPayments.CardService CardService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
 @using bank.Models
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
@@ -58,12 +58,9 @@
                                             <span>@card.Type Card</span>
                                         }
                                     </div>
-                                    @if (card.Status != "REQUESTED")
-                                    {
-                                        <div class="card-status @(card.Status.ToLower())" style="margin-top: 0;">
-                                            @card.Status
-                                        </div>
-                                    }
+                                    <div class="card-status @(card.Status.ToLower())" style="margin-top: 0;">
+                                        @card.Status
+                                    </div>
                                 </div>
                                 <div class="card-chip"></div>
                                 @if (_revealedCards.ContainsKey(card.Id))
@@ -247,17 +244,25 @@
         }
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if (user.Identity != null && user.Identity.IsAuthenticated)
+        if (firstRender)
         {
-            var userIdString = user.FindFirst("id")?.Value;
-            if (Guid.TryParse(userIdString, out var parsedGuid))
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (user.Identity != null && user.Identity.IsAuthenticated)
             {
-                _userId = parsedGuid.ToString();
-                await LoadDataAsync();
+                var userIdString = user.FindFirst("id")?.Value;
+                if (Guid.TryParse(userIdString, out var parsedGuid))
+                {
+                    _userId = parsedGuid.ToString();
+                    await LoadDataAsync();
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/");
             }
         }
     }
@@ -327,20 +332,6 @@
                 return;
             }
             account.Balance -= _initialPrepaidBalance;
-            
-            var transaction = new bank.Models.Transaction
-            {
-                Id = Guid.NewGuid(),
-                FromAccountId = account.Id,
-                ToAccountId = null,
-                Amount = _initialPrepaidBalance,
-                Currency = account.Currency,
-                Description = "Initial Prepaid Card Funding",
-                TransactionType = "FEE",
-                Timestamp = DateTime.UtcNow,
-                Status = "Completed"
-            };
-            DbContext.Transactions.Add(transaction);
             DbContext.Accounts.Update(account);
             await DbContext.SaveChangesAsync();
         }
@@ -369,14 +360,11 @@
                 DbContext.Cards.Add(newCard);
                 await DbContext.SaveChangesAsync();
 
-                if (response.Card_Type != "VIRTUAL")
-                {
-                    await CardService.SimulateLifecycleAsync(response.Card_Token, "PRODUCING");
-                    await CardService.SimulateLifecycleAsync(response.Card_Token, "SHIPPED");
-                    await CardService.ActivateCardAsync(response.Card_Token);
-                    newCard.Status = "ACTIVE";
-                    await DbContext.SaveChangesAsync();
-                }
+                await CardService.SimulateLifecycleAsync(response.Card_Token, "PRODUCING");
+                await CardService.SimulateLifecycleAsync(response.Card_Token, "SHIPPED");
+                await CardService.ActivateCardAsync(response.Card_Token);
+                newCard.Status = "ACTIVE";
+                await DbContext.SaveChangesAsync();
 
                 _newCardMessage = "Card successfully issued!";
                 _newCardPan = response.Full_Pan;

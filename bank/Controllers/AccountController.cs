@@ -93,5 +93,129 @@ namespace bank.Controllers
                 PendingJuniorTransactions = pendingJuniorTransactions
             });
         }
+
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userIdStr = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            return Ok(new {
+                user.FirstName,
+                user.LastName,
+                user.PhoneNumber,
+                user.Address,
+                user.SocialSecurityNumber,
+                user.Email
+            });
+        }
+
+        [HttpPut("profile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
+        {
+            var userIdStr = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            user.FirstName = dto.FirstName;
+            user.LastName = dto.LastName;
+            user.PhoneNumber = dto.PhoneNumber;
+            user.Address = dto.Address;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Profile updated successfully." });
+        }
+
+        [HttpPut("password")]
+        public async Task<IActionResult> UpdatePassword([FromBody] UpdatePasswordDto dto)
+        {
+            var userIdStr = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, user.PasswordHash))
+                return BadRequest(new { Message = "Invalid current password." });
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Password changed successfully." });
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetAccountDetails(Guid id)
+        {
+            var userIdStr = User.FindFirst("id")?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized();
+
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == id);
+            if (account == null) return NotFound();
+
+            // Allow access if owner OR if it's a junior account of the owner
+            if (account.UserId != userId && account.ParentAccountId != null)
+            {
+                var parentAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == account.ParentAccountId);
+                if (parentAccount == null || parentAccount.UserId != userId)
+                    return Unauthorized();
+            }
+            else if (account.UserId != userId)
+            {
+                return Unauthorized();
+            }
+
+            var transactions = await _context.Transactions
+                .Include(t => t.FromAccount)
+                .Include(t => t.ToAccount)
+                .Where(t => t.FromAccountId == id || t.ToAccountId == id)
+                .OrderByDescending(t => t.Timestamp)
+                .Select(t => new {
+                    t.Id,
+                    t.Timestamp,
+                    t.Description,
+                    t.TransactionType,
+                    t.Status,
+                    t.Amount,
+                    t.Currency,
+                    IsCredit = t.ToAccountId == id
+                })
+                .ToListAsync();
+
+            return Ok(new {
+                Account = new {
+                    account.Id,
+                    account.AccountType,
+                    account.AccountNumber,
+                    account.RoutingNumber,
+                    account.Balance,
+                    account.Currency,
+                    account.CreatedAt
+                },
+                Transactions = transactions
+            });
+        }
+    }
+
+    public class UpdateProfileDto
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+    }
+
+    public class UpdatePasswordDto
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

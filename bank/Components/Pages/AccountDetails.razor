@@ -1,115 +1,218 @@
-@page "/account/{AccountId}"
+@page "/account/{AccountId:guid}"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
+@inject ProtectedSessionStorage SessionStorage
 @rendermode InteractiveServer
 
 <PageTitle>Account Details – American Bank</PageTitle>
 
 <div class="fade-in">
-    <div class="page-header">
-        <h1>Primary Checking</h1>
-        <p class="page-subtitle">Account details and transaction activity</p>
-    </div>
-
-    <!-- Account Info -->
-    <div class="info-grid">
-        <div class="info-item">
-            <div class="info-label">Available Balance</div>
-            <div class="info-value" style="font-size: 1.5rem;">$12,458.32</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Routing Number (ABA)</div>
-            <div class="info-value mono">123456789</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Account Number</div>
-            <div class="info-value mono">0012344521</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Account Type</div>
-            <div class="info-value">Checking (Standard)</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Currency</div>
-            <div class="info-value">USD – US Dollar</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Opened On</div>
-            <div class="info-value">January 15, 2024</div>
-        </div>
-    </div>
-
-    <!-- Actions -->
-    <div class="quick-actions" style="margin-bottom: 1.5rem;">
-        <a href="/transfer/internal" class="btn btn-primary">Transfer Funds</a>
-        <a href="/transfer/ach" class="btn btn-secondary">Send ACH</a>
-        <a href="/transfer/wire" class="btn btn-secondary">Wire Transfer</a>
-    </div>
-
-    <!-- Transactions for this account -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Account Activity</h3>
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 2rem;">Loading account details...</div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-error">@errorMessage</div>
+    }
+    else if (account != null)
+    {
+        <div class="page-header">
+            <h1>@(account.AccountType == "Junior" ? $"Junior Account" : $"Primary {account.AccountType}")</h1>
+            <p class="page-subtitle">Account details and transaction activity</p>
         </div>
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th style="text-align: right;">Amount</th>
-                        <th style="text-align: right;">Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>May 12, 2026</td>
-                        <td>Payroll Deposit – Acme Corp</td>
-                        <td><span class="badge badge-info">ACH</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-positive">+$3,450.00</td>
-                        <td style="text-align: right;" class="amount">$12,458.32</td>
-                    </tr>
-                    <tr>
-                        <td>May 11, 2026</td>
-                        <td>Transfer to Savings</td>
-                        <td><span class="badge badge-info">Internal</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-negative">−$500.00</td>
-                        <td style="text-align: right;" class="amount">$9,008.32</td>
-                    </tr>
-                    <tr>
-                        <td>May 10, 2026</td>
-                        <td>Wire to ABC Realty</td>
-                        <td><span class="badge badge-info">Wire</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-negative">−$2,100.00</td>
-                        <td style="text-align: right;" class="amount">$9,508.32</td>
-                    </tr>
-                    <tr>
-                        <td>May 9, 2026</td>
-                        <td>FedNow from Jane Smith</td>
-                        <td><span class="badge badge-info">FedNow</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-positive">+$250.00</td>
-                        <td style="text-align: right;" class="amount">$11,608.32</td>
-                    </tr>
-                    <tr>
-                        <td>May 8, 2026</td>
-                        <td>SWIFT – London Office</td>
-                        <td><span class="badge badge-info">SWIFT</span></td>
-                        <td><span class="badge badge-completed">Completed</span></td>
-                        <td style="text-align: right;" class="amount amount-negative">−$5,000.00</td>
-                        <td style="text-align: right;" class="amount">$11,358.32</td>
-                    </tr>
-                </tbody>
-            </table>
+        <!-- Account Info -->
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Available Balance</div>
+                <div class="info-value" style="font-size: 1.5rem;">@account.Balance.ToString("C")</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Routing Number (ABA)</div>
+                <div class="info-value mono">@account.RoutingNumber</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Account Number</div>
+                <div class="info-value mono">@account.AccountNumber</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Account Type</div>
+                <div class="info-value">@account.AccountType</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Currency</div>
+                <div class="info-value">@account.Currency</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Opened On</div>
+                <div class="info-value">@account.CreatedAt.ToString("MMMM dd, yyyy")</div>
+            </div>
         </div>
-    </div>
+
+        <!-- Actions -->
+        <div class="quick-actions" style="margin-bottom: 1.5rem;">
+            <a href="/transfer/internal" class="btn btn-primary">Transfer Funds</a>
+            <a href="/transfer/ach" class="btn btn-secondary">Send ACH</a>
+            <a href="/transfer/wire" class="btn btn-secondary">Wire Transfer</a>
+        </div>
+
+        <!-- Transactions for this account -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Account Activity</h3>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (transactions != null && transactions.Any())
+                        {
+                            @foreach (var t in transactions)
+                            {
+                                <tr>
+                                    <td>@t.Timestamp.ToString("MMM dd, yyyy")</td>
+                                    <td>@t.Description</td>
+                                    <td><span class="badge badge-info">@t.TransactionType</span></td>
+                                    <td>
+                                        @if (t.Status == "Completed")
+                                        {
+                                            <span class="badge badge-completed">Completed</span>
+                                        }
+                                        else if (t.Status == "Pending_Approval")
+                                        {
+                                            <span class="badge badge-pending">Pending Approval</span>
+                                        }
+                                        else if (t.Status == "REJECTED")
+                                        {
+                                            <span class="badge badge-error">Rejected</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-pending">@t.Status</span>
+                                        }
+                                    </td>
+                                    <td style="text-align: right;" class="amount @(t.IsCredit ? "amount-positive" : "amount-negative")">
+                                        @(t.IsCredit ? "+" : "−")@t.Amount.ToString("C")
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" style="text-align: center;">No transactions found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     [Parameter]
-    public string? AccountId { get; set; }
+    public Guid AccountId { get; set; }
+
+    private bool isLoading = true;
+    private string? errorMessage;
+    private AccountDetailsDto? account;
+    private List<TransactionDto>? transactions;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+            else
+            {
+                errorMessage = "Authentication failed.";
+                isLoading = false;
+                return;
+            }
+
+            var resp = await client.GetAsync($"api/account/{AccountId}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var data = await resp.Content.ReadFromJsonAsync<AccountDetailsResponse>();
+                if (data != null)
+                {
+                    account = data.Account;
+                    transactions = data.Transactions;
+                }
+            }
+            else if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized || resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                errorMessage = "Account not found or access denied.";
+            }
+            else
+            {
+                errorMessage = "Failed to load account details.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while loading data.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class AccountDetailsResponse
+    {
+        public AccountDetailsDto Account { get; set; } = new();
+        public List<TransactionDto> Transactions { get; set; } = new();
+    }
+
+    public class AccountDetailsDto
+    {
+        public Guid Id { get; set; }
+        public string AccountType { get; set; } = "";
+        public string AccountNumber { get; set; } = "";
+        public string RoutingNumber { get; set; } = "";
+        public decimal Balance { get; set; }
+        public string Currency { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class TransactionDto
+    {
+        public Guid Id { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string Description { get; set; } = "";
+        public string TransactionType { get; set; } = "";
+        public string Status { get; set; } = "";
+        public decimal Amount { get; set; }
+        public string Currency { get; set; } = "";
+        public bool IsCredit { get; set; }
+    }
 }

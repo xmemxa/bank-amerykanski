@@ -1,0 +1,261 @@
+@page "/employee/create-junior"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using System.ComponentModel.DataAnnotations
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
+@inject ProtectedSessionStorage SessionStorage
+@rendermode InteractiveServer
+
+<PageTitle>Create Junior Account – American Bank</PageTitle>
+
+<div class="fade-in">
+    <div class="page-header">
+        <h1>Create Junior Account</h1>
+        <p class="page-subtitle">Register a new junior user linked to a parent's account</p>
+    </div>
+
+    <div style="max-width: 600px; margin: 0 auto;">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Junior Account Details</h3>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-error" style="margin: 1.5rem 1.5rem 0;">
+                    @errorMessage
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+                <div class="alert alert-success" style="margin: 1.5rem 1.5rem 0;">
+                    @successMessage
+                </div>
+                <div style="padding: 1.5rem; text-align: center;">
+                    <a href="/employee/customers" class="btn btn-primary">Return to Customer List</a>
+                </div>
+            }
+            else
+            {
+                <div style="padding: 1.5rem;">
+                    <EditForm Model="registerModel" OnValidSubmit="HandleSubmit" FormName="CreateJuniorForm">
+                        <DataAnnotationsValidator />
+
+                        <div class="form-group">
+                            <label class="form-label">Parent Customer</label>
+                            @if (isLoadingCustomers)
+                            {
+                                <p style="color: var(--text-muted); font-size: 0.875rem;">Loading parents...</p>
+                            }
+                            else
+                            {
+                                <select class="form-select" @bind="registerModel.ParentUserId" required>
+                                    <option value="">-- Select Parent Customer --</option>
+                                    @foreach (var parent in parents)
+                                    {
+                                        <option value="@parent.Id">@parent.FirstName @parent.LastName (@parent.PhoneNumber)</option>
+                                    }
+                                </select>
+                            }
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Junior First Name</label>
+                                <InputText class="form-input" @bind-Value="registerModel.FirstName" />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Junior Last Name</label>
+                                <InputText class="form-input" @bind-Value="registerModel.LastName" />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Login Username</label>
+                            <InputText class="form-input" @bind-Value="registerModel.Username" />
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Password</label>
+                            <InputText class="form-input" @bind-Value="registerModel.Password" type="password" />
+                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Must be at least 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special char.</p>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Initial Deposit Amount</label>
+                                <InputNumber class="form-input" @bind-Value="registerModel.InitialDeposit" min="0" step="0.01" />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Currency</label>
+                                <select class="form-select" @bind="registerModel.Currency">
+                                    <option value="USD">USD</option>
+                                    <option value="EUR">EUR</option>
+                                    <option value="GBP">GBP</option>
+                                    <option value="PLN">PLN</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <a href="/employee/customers" class="btn btn-secondary" style="flex: 1; text-align: center;">Cancel</a>
+                            <button type="submit" class="btn btn-primary" style="flex: 2;" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span>Creating...</span>
+                                }
+                                else
+                                {
+                                    <span>Create Junior Account</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "parentId")]
+    public Guid? ParentIdFromQuery { get; set; }
+
+    private JuniorRegisterModel registerModel = new();
+    private bool isLoadingCustomers = true;
+    private bool isSubmitting = false;
+    private string? errorMessage;
+    private string? successMessage;
+    private List<CustomerDto> parents = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadParents();
+            if (ParentIdFromQuery.HasValue)
+            {
+                registerModel.ParentUserId = ParentIdFromQuery.Value;
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadParents()
+    {
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+
+            var resp = await client.GetAsync("api/auth/customers");
+            if (resp.IsSuccessStatusCode)
+            {
+                var allCustomers = await resp.Content.ReadFromJsonAsync<List<CustomerDto>>() ?? new();
+                // Filter customers that actually have a primary account (AccountType != Junior)
+                parents = allCustomers.Where(c => c.Accounts.Any(a => a.AccountType != "Junior")).ToList();
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "Failed to load parent customers list.";
+        }
+        finally
+        {
+            isLoadingCustomers = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (registerModel.ParentUserId == Guid.Empty)
+        {
+            errorMessage = "Please select a parent customer.";
+            return;
+        }
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+
+            var resp = await client.PostAsJsonAsync("api/auth/register-junior", registerModel);
+            if (resp.IsSuccessStatusCode)
+            {
+                var result = await resp.Content.ReadFromJsonAsync<RegisterResult>();
+                successMessage = $"Junior account successfully created! Account Number: {result?.AccountNumber}";
+            }
+            else
+            {
+                errorMessage = await resp.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "An error occurred while creating the account.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    public class JuniorRegisterModel
+    {
+        [Required]
+        public Guid ParentUserId { get; set; }
+        
+        [Required]
+        public string FirstName { get; set; } = string.Empty;
+        
+        [Required]
+        public string LastName { get; set; } = string.Empty;
+        
+        [Required]
+        [StringLength(20, MinimumLength = 4)]
+        public string Username { get; set; } = string.Empty;
+        
+        [Required]
+        public string Password { get; set; } = string.Empty;
+        
+        [Required]
+        public string Currency { get; set; } = "USD";
+        
+        public decimal InitialDeposit { get; set; }
+    }
+
+    public class CustomerDto
+    {
+        public Guid Id { get; set; }
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string PhoneNumber { get; set; } = "";
+        public List<CustomerAccountDto> Accounts { get; set; } = new();
+    }
+
+    public class CustomerAccountDto
+    {
+        public string AccountType { get; set; } = "";
+    }
+
+    public class RegisterResult
+    {
+        public string Message { get; set; } = "";
+        public string AccountNumber { get; set; } = "";
+    }
+}

@@ -15,104 +15,93 @@
 
 <PageTitle>KLIK P2P Transfer</PageTitle>
 
-<div class="flex flex-col gap-6">
-    <div class="flex flex-col gap-2">
-        <h1 class="text-3xl font-bold tracking-tight">KLIK Transfer to Phone</h1>
-        <p class="text-muted-foreground">Send money instantly using just a phone number, or register your own number.</p>
+<div class="fade-in">
+    <div class="page-header">
+        <h1>KLIK Transfer to Phone</h1>
+        <p class="page-subtitle">Send money instantly using just a phone number, or register your own number.</p>
     </div>
 
-    <div class="grid gap-6 md:grid-cols-2">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
         <!-- Send Money Form -->
-        <div class="rounded-xl border bg-card text-card-foreground shadow">
-            <div class="flex flex-col space-y-1.5 p-6 border-b">
-                <h3 class="font-semibold leading-none tracking-tight">Send Money</h3>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Send Money</h3>
             </div>
-            <div class="p-6">
+            <div style="padding: 1.5rem;">
                 <EditForm Model="transferModel" OnValidSubmit="HandleSendMoney">
                     <DataAnnotationsValidator />
 
-                    <div class="space-y-4">
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium leading-none">Recipient Phone Number (e.g. +15551234567)</label>
-                            <InputText @bind-Value="transferModel.Phone" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="+1..." />
-                        </div>
-
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium leading-none">Amount (USD)</label>
-                            <InputNumber @bind-Value="transferModel.Amount" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" min="0.01" step="0.01" />
-                        </div>
-
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium leading-none">Description</label>
-                            <InputText @bind-Value="transferModel.Description" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="Transfer description" />
-                        </div>
-
-                        @if (!string.IsNullOrEmpty(sendErrorMessage))
-                        {
-                            <div class="text-destructive text-sm bg-destructive/10 p-3 rounded-md">
-                                @sendErrorMessage
-                            </div>
-                        }
-
-                        @if (!string.IsNullOrEmpty(sendSuccessMessage))
-                        {
-                            <div class="text-green-600 text-sm bg-green-50 p-3 rounded-md border border-green-200">
-                                @sendSuccessMessage
-                            </div>
-                        }
-
-                        <button type="submit" disabled="@isSending" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full">
-                            @if (isSending)
-                            {
-                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                <span>Sending...</span>
-                            }
-                            else
-                            {
-                                <span>Send instantly via KLIK</span>
-                            }
-                        </button>
+                    <div class="form-group">
+                        <label class="form-label">Recipient Phone Number (e.g. +15551234567)</label>
+                        <InputText @bind-Value="transferModel.Phone" class="form-input" placeholder="+1..." />
                     </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Amount (USD)</label>
+                        <InputNumber @bind-Value="transferModel.Amount" class="form-input" min="0.01" step="0.01" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <InputText @bind-Value="transferModel.Description" class="form-input" placeholder="Transfer description" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(sendErrorMessage))
+                    {
+                        <div class="alert alert-error">@sendErrorMessage</div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(sendSuccessMessage))
+                    {
+                        <div class="alert alert-success">@sendSuccessMessage</div>
+                    }
+
+                    <button type="submit" disabled="@isSending" class="btn btn-primary btn-full" style="margin-top: 1rem;">
+                        @if (isSending)
+                        {
+                            <span>Sending...</span>
+                        }
+                        else
+                        {
+                            <span>Send instantly via KLIK</span>
+                        }
+                    </button>
                 </EditForm>
             </div>
         </div>
 
         <!-- Manage Alias -->
-        <div class="rounded-xl border bg-card text-card-foreground shadow">
-            <div class="flex flex-col space-y-1.5 p-6 border-b">
-                <h3 class="font-semibold leading-none tracking-tight">Receive Money (Register Phone)</h3>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Receive Money (Register Phone)</h3>
             </div>
-            <div class="p-6">
-                <div class="space-y-4">
-                    <p class="text-sm text-muted-foreground mb-4">Register your phone number to receive transfers instantly from anyone using KLIK P2P.</p>
-                    
-                    <div class="space-y-2">
-                        <label class="text-sm font-medium leading-none">Your Phone Number</label>
-                        <input @bind="registerPhone" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" placeholder="+1..." />
-                    </div>
+            <div style="padding: 1.5rem;">
+                <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
+                    Register your phone number to receive transfers instantly from anyone using KLIK P2P.
+                </p>
+                
+                <div class="form-group">
+                    <label class="form-label">Your Phone Number</label>
+                    <input @bind="registerPhone" class="form-input" placeholder="+1..." />
+                </div>
 
-                    @if (!string.IsNullOrEmpty(registerErrorMessage))
-                    {
-                        <div class="text-destructive text-sm bg-destructive/10 p-3 rounded-md">
-                            @registerErrorMessage
-                        </div>
-                    }
+                @if (!string.IsNullOrEmpty(registerErrorMessage))
+                {
+                    <div class="alert alert-error">@registerErrorMessage</div>
+                }
 
-                    @if (!string.IsNullOrEmpty(registerSuccessMessage))
-                    {
-                        <div class="text-green-600 text-sm bg-green-50 p-3 rounded-md border border-green-200">
-                            @registerSuccessMessage
-                        </div>
-                    }
+                @if (!string.IsNullOrEmpty(registerSuccessMessage))
+                {
+                    <div class="alert alert-success">@registerSuccessMessage</div>
+                }
 
-                    <div class="flex gap-2">
-                        <button @onclick="RegisterAlias" disabled="@isRegistering" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2 flex-1">
-                            Register
-                        </button>
-                        <button @onclick="DeleteAlias" disabled="@isRegistering" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 flex-1">
-                            Unregister
-                        </button>
-                    </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button @onclick="RegisterAlias" disabled="@isRegistering" class="btn btn-primary" style="flex: 1;">
+                        Register
+                    </button>
+                    <button @onclick="DeleteAlias" disabled="@isRegistering" class="btn btn-secondary" style="flex: 1;">
+                        Unregister
+                    </button>
                 </div>
             </div>
         </div>

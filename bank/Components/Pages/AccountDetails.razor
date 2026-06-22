@@ -98,6 +98,15 @@
                                         {
                                             <span class="badge badge-error">Rejected</span>
                                         }
+                                        else if (t.Status == "AML_HOLD")
+                                        {
+                                            <span class="badge badge-failed" style="background-color: orange; color: white;">AML Hold</span>
+                                            <a href="/history" class="btn btn-sm btn-primary" style="margin-left: 5px; padding: 2px 8px; font-size: 0.8em; text-decoration: none;">Explain</a>
+                                        }
+                                        else if (t.Status == "AML_EXPLAINED")
+                                        {
+                                            <span class="badge badge-info">AML In Review</span>
+                                        }
                                         else
                                         {
                                             <span class="badge badge-pending">@t.Status</span>

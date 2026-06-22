@@ -42,5 +42,8 @@ namespace bank.Models
 
         // Zserializowane dane przelewu oczekującego na akceptację (np. przez rodzica)
         public string? TransferRequestJson { get; set; }
+
+        // System AML
+        public string? AmlExplanation { get; set; }
     }
 }

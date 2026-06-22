@@ -29,19 +29,30 @@ namespace bank.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            var accounts = await _context.Accounts
+            var userAccounts = await _context.Accounts
                 .Where(a => a.UserId == userId)
-                .Select(a => new {
+                .ToListAsync();
+
+            var userAccountIds = userAccounts.Select(a => a.Id).ToList();
+
+            var juniorAccounts = await _context.Accounts
+                .Where(a => a.ParentAccountId != null && userAccountIds.Contains(a.ParentAccountId.Value))
+                .ToListAsync();
+
+            var allAccounts = userAccounts.Concat(juniorAccounts).ToList();
+
+            var accounts = allAccounts.Select(a => new {
                     a.Id,
                     a.AccountType,
                     a.AccountNumber,
                     a.RoutingNumber,
                     a.Balance,
-                    a.Currency
+                    a.Currency,
+                    IsJunior = a.AccountType == "Junior"
                 })
-                .ToListAsync();
+                .ToList();
 
-            var accountIds = accounts.Select(a => a.Id).ToList();
+            var accountIds = allAccounts.Select(a => a.Id).ToList();
 
             var recentTransactions = await _context.Transactions
                 .Include(t => t.FromAccount)
@@ -62,10 +73,24 @@ namespace bank.Controllers
                 })
                 .ToListAsync();
 
+            var pendingJuniorTransactions = await _context.Transactions
+                .Include(t => t.FromAccount)
+                .Where(t => t.Status == "Pending_Approval" && t.FromAccount != null && t.FromAccount.ParentAccountId != null && accountIds.Contains(t.FromAccount.ParentAccountId.Value))
+                .Select(t => new {
+                    t.Id,
+                    t.Amount,
+                    t.Currency,
+                    t.Description,
+                    t.Timestamp,
+                    JuniorAccountName = t.FromAccount.AccountNumber
+                })
+                .ToListAsync();
+
             return Ok(new {
                 FirstName = user.FirstName,
                 Accounts = accounts,
-                RecentTransactions = recentTransactions
+                RecentTransactions = recentTransactions,
+                PendingJuniorTransactions = pendingJuniorTransactions
             });
         }
     }

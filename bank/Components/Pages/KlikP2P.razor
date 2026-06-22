@@ -7,6 +7,7 @@
 @using bank.Models
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Text.Json
 @inject KlikP2PService KlikP2PService
 @inject FedNowService FedNowService
 @inject AuthenticationStateProvider AuthStateProvider
@@ -165,6 +166,37 @@
             var senderAccount = await DbContext.Accounts.FirstOrDefaultAsync(a => a.UserId == currentUser.Id);
             if (senderAccount == null) throw new Exception("Account not found.");
             if (senderAccount.Balance < transferModel.Amount) throw new Exception("Insufficient funds.");
+
+            if (senderAccount.AccountType == "Junior")
+            {
+                var dto = new TransferRequestDto
+                {
+                    FromAccount = senderAccount.AccountNumber,
+                    ToAccount = transferModel.Phone, // we store phone as ToAccount
+                    Amount = transferModel.Amount,
+                    Description = transferModel.Description,
+                    TransactionType = "KLIK"
+                };
+
+                var pendingTx = new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    FromAccountId = senderAccount.Id,
+                    Amount = transferModel.Amount,
+                    Currency = "USD",
+                    Description = $"Pending KLIK P2P to {transferModel.Phone}: {transferModel.Description}",
+                    Status = "Pending_Approval",
+                    TransactionType = "KLIK",
+                    TransferRequestJson = JsonSerializer.Serialize(dto)
+                };
+
+                DbContext.Transactions.Add(pendingTx);
+                await DbContext.SaveChangesAsync();
+
+                sendSuccessMessage = "Transfer requested and is pending parent approval.";
+                transferModel = new TransferModel(); // Reset form
+                return;
+            }
 
             // 1. Lookup the alias in KLIK
             var lookupResult = await KlikP2PService.LookupAliasAsync(transferModel.Phone);

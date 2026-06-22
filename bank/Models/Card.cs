@@ -15,6 +15,9 @@ namespace bank.Models
         public string Type { get; set; } = "VIRTUAL"; // VIRTUAL, PHYSICAL, PREPAID
         public string Status { get; set; } = "REQUESTED"; // REQUESTED, PRODUCING, SHIPPED, ACTIVE, BLOCKED
         
+        public decimal? DailyLimit { get; set; }
+        public decimal? PerTransactionLimit { get; set; }
+        
         public int ExpiryMonth { get; set; }
         public int ExpiryYear { get; set; }
         

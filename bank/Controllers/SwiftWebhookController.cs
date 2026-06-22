@@ -281,6 +281,62 @@ namespace bank.Controllers
             _ = client.SendAsync(request);
         }
 
+        [HttpPost("ack")]
+        [Consumes("application/json")]
+        public async Task<IActionResult> ReceiveSwiftAck([FromBody] SwiftAckDto ackData)
+        {
+            _logger.LogInformation("Received SWIFT ACK for UETR: {Uetr}, Status: {Status}", ackData.uetr, ackData.status);
+
+            var transaction = await _dbContext.Transactions.FirstOrDefaultAsync(t => t.EndToEndId == ackData.uetr && t.TransactionType == "SWIFT");
+            if (transaction != null)
+            {
+                if (ackData.status == "accepted")
+                {
+                    transaction.Status = "Completed";
+                    transaction.ExternalStatus = "ACCP";
+                }
+                else
+                {
+                    transaction.Status = "Rejected";
+                    transaction.ExternalStatus = "RJCT";
+                    
+                    // Refund user
+                    var userAccount = await _dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.FromAccountId);
+                    if (userAccount != null)
+                    {
+                        userAccount.Balance += transaction.Amount;
+                        var refundTx = new Transaction
+                        {
+                            Id = Guid.NewGuid(),
+                            FromAccountId = null,
+                            ToAccountId = userAccount.Id,
+                            Amount = transaction.Amount,
+                            Currency = transaction.Currency,
+                            Description = "SWIFT Transfer Refund",
+                            Timestamp = DateTime.UtcNow,
+                            Status = "Completed",
+                            TransactionType = "Refund",
+                            EndToEndId = ackData.uetr
+                        };
+                        _dbContext.Transactions.Add(refundTx);
+                    }
+                }
+                await _dbContext.SaveChangesAsync();
+            }
+
+            return Ok(new { status = "ok" });
+        }
+
+        public class SwiftAckDto
+        {
+            public string status { get; set; } = "";
+            public string bank { get; set; } = "";
+            public string received_at { get; set; } = "";
+            public string message_id { get; set; } = "";
+            public string uetr { get; set; } = "";
+            public string receiver_account { get; set; } = "";
+        }
+
         private decimal GetExchangeRate(string currency)
         {
             return currency.ToUpper() switch

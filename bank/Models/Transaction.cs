@@ -39,5 +39,8 @@ namespace bank.Models
         // FedNow/RTP correlation fields
         public string? EndToEndId { get; set; } // ISO 20022 EndToEndId for pacs.008 <-> pacs.002 matching
         public string? ExternalStatus { get; set; } // Status from external system: ACCP, RJCT, PDNG, ACTC
+
+        // Zserializowane dane przelewu oczekującego na akceptację (np. przez rodzica)
+        public string? TransferRequestJson { get; set; }
     }
 }

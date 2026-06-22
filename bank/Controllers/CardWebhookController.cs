@@ -83,6 +83,24 @@ namespace bank.Controllers
                 return BadRequest(new { error = "Card not found" });
             }
 
+            if (card.PerTransactionLimit.HasValue && request.amount > card.PerTransactionLimit.Value)
+            {
+                return BadRequest(new { error = "Per-transaction limit exceeded" });
+            }
+
+            if (card.DailyLimit.HasValue)
+            {
+                var today = DateTime.UtcNow.Date;
+                var dailySpent = await _dbContext.Transactions
+                    .Where(t => t.Description.Contains($"[{card.MaskedPan}]") && t.Timestamp >= today)
+                    .SumAsync(t => t.Amount);
+
+                if (dailySpent + request.amount > card.DailyLimit.Value)
+                {
+                    return BadRequest(new { error = "Daily limit exceeded" });
+                }
+            }
+
             var account = card.Account;
 
             if (card.Type != "PREPAID")
@@ -105,7 +123,7 @@ namespace bank.Controllers
                 FromAccountId = card.Type == "PREPAID" ? null : account.Id,
                 ToAccountId = null,
                 Amount = request.amount,
-                Description = $"Card payment at {request.merchant_id}" + (card.Type == "PREPAID" ? " (Prepaid)" : ""),
+                Description = $"Card payment at {request.merchant_id} [{card.MaskedPan}]" + (card.Type == "PREPAID" ? " (Prepaid)" : ""),
                 Status = "Completed",
                 Timestamp = DateTime.UtcNow,
                 TransactionType = "Card"

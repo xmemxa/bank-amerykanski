@@ -49,6 +49,27 @@
             }
         </div>
 
+        @if (summary.PendingJuniorTransactions.Any())
+        {
+            <h2 style="margin-bottom: 1rem; color: var(--accent);">Pending Junior Approvals</h2>
+            <div class="accounts-grid" style="margin-bottom: 2rem;">
+                @foreach (var p in summary.PendingJuniorTransactions)
+                {
+                    <div class="account-card" style="border-left: 4px solid var(--accent);">
+                        <div class="account-type">Transfer requested by @p.JuniorAccountName</div>
+                        <div class="account-name">@p.Description</div>
+                        <div class="account-balance">
+                            <span class="currency">$</span>@p.Amount.ToString("N2")
+                        </div>
+                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                            <button class="btn btn-primary" style="flex: 1;" @onclick="() => ApproveTransaction(p.Id)">Approve</button>
+                            <button class="btn btn-outline" style="flex: 1;" @onclick="() => RejectTransaction(p.Id)">Reject</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
         <!-- Recent Transactions -->
         <div class="card">
             <div class="card-header">
@@ -161,11 +182,59 @@
         }
     }
 
+    private async Task ApproveTransaction(Guid id)
+    {
+        var client = ClientFactory.CreateClient();
+        client.BaseAddress = new Uri(NavigationManager.BaseUri);
+        var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+
+        var response = await client.PostAsync($"api/transaction/approve/{id}", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadData();
+        }
+        else
+        {
+            var errStr = await response.Content.ReadAsStringAsync();
+            errorMessage = $"Failed to approve transaction. Reason: {errStr}";
+        }
+    }
+
+    private async Task RejectTransaction(Guid id)
+    {
+        var client = ClientFactory.CreateClient();
+        client.BaseAddress = new Uri(NavigationManager.BaseUri);
+        var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+
+        var response = await client.PostAsync($"api/transaction/reject/{id}", null);
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadData();
+        }
+        else
+        {
+            errorMessage = "Failed to reject transaction.";
+        }
+    }
+
     public class DashboardSummary
     {
         public string FirstName { get; set; } = "";
         public List<AccountInfo> Accounts { get; set; } = new();
         public List<TransactionInfo> RecentTransactions { get; set; } = new();
+        public List<PendingJuniorTransactionInfo> PendingJuniorTransactions { get; set; } = new();
+    }
+
+    public class PendingJuniorTransactionInfo
+    {
+        public Guid Id { get; set; }
+        public decimal Amount { get; set; }
+        public string Currency { get; set; } = "USD";
+        public string Description { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+        public string JuniorAccountName { get; set; } = "";
     }
 
     public class AccountInfo

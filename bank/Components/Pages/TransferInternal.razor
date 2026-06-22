@@ -57,6 +57,12 @@
                     }
                 </InputSelect>
                 <ValidationMessage For="@(() => model.FromAccount)" class="text-danger" />
+                @if (IsJuniorAccount(model.FromAccount))
+                {
+                    <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--hover); border-left: 4px solid var(--accent); border-radius: 4px; font-size: 0.875rem;">
+                        <strong>Note:</strong> This is a Junior account. Transfers will be sent to your parent for approval before execution.
+                    </div>
+                }
             </div>
 
             @if (model.TransactionType == "Internal")
@@ -223,6 +229,12 @@
         "SWIFT" => "e.g. UKBKGB01XXX",
         _ => "e.g. 010101012"
     };
+
+    private bool IsJuniorAccount(string accountNumber)
+    {
+        var acc = myAccounts.FirstOrDefault(a => a.AccountNumber == accountNumber);
+        return acc != null && acc.AccountType == "Junior";
+    }
 
     private class TransferResult
     {

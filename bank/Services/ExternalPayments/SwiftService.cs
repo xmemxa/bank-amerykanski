@@ -113,6 +113,7 @@ namespace bank.Services.ExternalPayments
                 // 3. Post XML
                 var xmlRequest = new HttpRequestMessage(HttpMethod.Post, $"{swiftApiUrl}/swift/message");
                 xmlRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                xmlRequest.Headers.Add("X-SWIFT-Callback-Url", "http://host.docker.internal:8080/api/swift/ack");
                 xmlRequest.Content = new StringContent(xmlPayload, Encoding.UTF8, "application/xml");
 
                 var xmlResponse = await httpClient.SendAsync(xmlRequest);

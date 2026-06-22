@@ -119,17 +119,34 @@
                     </div>
                 }
 
-                <div class="order-section">
-                    <div class="order-title">Order a new card</div>
-                    <div class="input-group" style="max-width: 500px;">
-                        <select class="form-select custom-select" @bind="_selectedCardType">
+                @if (!IsJuniorUser())
+                {
+                    <div class="order-section">
+                        <div class="order-title">Order a new card</div>
+                    <div class="input-group d-flex flex-wrap align-items-center" style="gap: 10px; width: 100%;">
+                        <select class="form-select custom-select" style="min-width: 150px; flex: 1;" @bind="_selectedCardType">
                             <option value="VIRTUAL">Virtual Card</option>
                             <option value="PHYSICAL">Physical Card</option>
                             <option value="PREPAID">Prepaid Card</option>
                         </select>
                         @if (_selectedCardType == "PREPAID")
                         {
-                            <input type="number" step="0.01" class="form-control custom-select" style="max-width: 120px;" placeholder="Amount" @bind="_initialPrepaidBalance" />
+                            <input type="number" step="0.01" class="form-control custom-select" style="min-width: 100px; max-width: 120px;" placeholder="Amount" @bind="_initialPrepaidBalance" />
+                            @if (account.AccountType == "Junior")
+                            {
+                                <input type="number" step="0.01" class="form-control custom-select ms-2" style="max-width: 120px;" placeholder="Daily Limit" @bind="_prepaidDailyLimit" />
+                                <input type="number" step="0.01" class="form-control custom-select ms-2" style="max-width: 120px;" placeholder="Tx Limit" @bind="_prepaidTxLimit" />
+                                <select class="form-select custom-select ms-2" style="min-width: 150px; max-width: 200px; flex: 1;" @bind="_fundingAccountId">
+                                    <option value="">Fund from...</option>
+                                    @if (_accounts != null)
+                                    {
+                                        @foreach(var pAcc in _accounts.Where(a => a.AccountType != "Junior"))
+                                        {
+                                            <option value="@pAcc.Id">@pAcc.AccountType - $@pAcc.Balance.ToString("N2")</option>
+                                        }
+                                    }
+                                </select>
+                            }
                         }
                         <button class="btn-order" @onclick="() => IssueCard(account.Id)" disabled="@_isProcessing">
                             @if (_isProcessing)
@@ -146,6 +163,7 @@
                         </div>
                     }
                 </div>
+                }
             </div>
         }
     }
@@ -167,7 +185,15 @@
     private string _newCardExpiry = string.Empty;
     private string _userId = string.Empty;
     private decimal _initialPrepaidBalance = 0m;
+    private decimal? _prepaidDailyLimit = null;
+    private decimal? _prepaidTxLimit = null;
+    private Guid? _fundingAccountId = null;
     private Dictionary<Guid, bank.Services.ExternalPayments.CardService.FullPanResponse> _revealedCards = new();
+
+    private bool IsJuniorUser()
+    {
+        return _accounts != null && _accounts.All(a => a.AccountType == "Junior");
+    }
 
     private async Task RevealCard(Guid cardId, string cardToken)
     {
@@ -269,11 +295,21 @@
 
     private async Task LoadDataAsync()
     {
-        _accounts = await DbContext.Accounts
+        var parentAccounts = await DbContext.Accounts
             .AsNoTracking()
             .Include(a => a.Cards)
             .Where(a => a.UserId == Guid.Parse(_userId))
             .ToListAsync();
+
+        var parentAccountIds = parentAccounts.Select(a => a.Id).ToList();
+
+        var juniorAccounts = await DbContext.Accounts
+            .AsNoTracking()
+            .Include(a => a.Cards)
+            .Where(a => a.ParentAccountId != null && parentAccountIds.Contains(a.ParentAccountId.Value))
+            .ToListAsync();
+
+        _accounts = parentAccounts.Concat(juniorAccounts).ToList();
             
         foreach (var account in _accounts)
         {
@@ -317,6 +353,8 @@
             return;
         }
 
+        Account fundingAccount = account;
+
         if (_selectedCardType == "PREPAID")
         {
             if (_initialPrepaidBalance <= 0)
@@ -325,14 +363,32 @@
                 _errorAccountId = accountId;
                 return;
             }
-            if (account.Balance < _initialPrepaidBalance)
+
+            if (account.AccountType == "Junior")
+            {
+                if (_fundingAccountId == null || _fundingAccountId == Guid.Empty)
+                {
+                    _errorMessage = "Please select a funding account.";
+                    _errorAccountId = accountId;
+                    return;
+                }
+                fundingAccount = await DbContext.Accounts.FindAsync(_fundingAccountId.Value);
+                if (fundingAccount == null || fundingAccount.UserId != Guid.Parse(_userId))
+                {
+                    _errorMessage = "Invalid funding account.";
+                    _errorAccountId = accountId;
+                    return;
+                }
+            }
+
+            if (fundingAccount.Balance < _initialPrepaidBalance)
             {
                 _errorMessage = "Insufficient funds for initial prepaid balance.";
                 _errorAccountId = accountId;
                 return;
             }
-            account.Balance -= _initialPrepaidBalance;
-            DbContext.Accounts.Update(account);
+            fundingAccount.Balance -= _initialPrepaidBalance;
+            DbContext.Accounts.Update(fundingAccount);
             await DbContext.SaveChangesAsync();
         }
 
@@ -354,7 +410,9 @@
                     Type = response.Card_Type,
                     Status = response.Status,
                     ExpiryMonth = response.Expiry_Month,
-                    ExpiryYear = response.Expiry_Year
+                    ExpiryYear = response.Expiry_Year,
+                    DailyLimit = _selectedCardType == "PREPAID" ? _prepaidDailyLimit : null,
+                    PerTransactionLimit = _selectedCardType == "PREPAID" ? _prepaidTxLimit : null
                 };
 
                 DbContext.Cards.Add(newCard);
@@ -376,7 +434,7 @@
                     var transaction = new Transaction
                     {
                         Id = Guid.NewGuid(),
-                        FromAccountId = accountId,
+                        FromAccountId = fundingAccount.Id,
                         ToAccountId = null,
                         Amount = _initialPrepaidBalance,
                         Description = $"Prepaid Card Top-up ({response.Masked_Pan})",
@@ -389,13 +447,16 @@
                 }
 
                 _initialPrepaidBalance = 0;
+                _prepaidDailyLimit = null;
+                _prepaidTxLimit = null;
                 await LoadDataAsync();
             }
             else
             {
                 if (_selectedCardType == "PREPAID")
                 {
-                    account.Balance += _initialPrepaidBalance;
+                    fundingAccount.Balance += _initialPrepaidBalance;
+                    DbContext.Accounts.Update(fundingAccount);
                     await DbContext.SaveChangesAsync();
                 }
                 _errorMessage = "Failed to issue card. Please try again later.";
@@ -406,7 +467,8 @@
         {
             if (_selectedCardType == "PREPAID")
             {
-                account.Balance += _initialPrepaidBalance;
+                fundingAccount.Balance += _initialPrepaidBalance;
+                DbContext.Accounts.Update(fundingAccount);
                 await DbContext.SaveChangesAsync();
             }
             _errorMessage = "An unexpected error occurred.";

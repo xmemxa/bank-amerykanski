@@ -9,56 +9,56 @@
 
 <PageTitle>KLIK Code</PageTitle>
 
-<div class="flex flex-col gap-6">
-    <div class="flex flex-col gap-2">
-        <h1 class="text-3xl font-bold tracking-tight">Generate KLIK Code</h1>
-        <p class="text-muted-foreground">Generate a 6-digit code to pay in stores or online.</p>
+<div class="fade-in">
+    <div class="page-header">
+        <h1>Generate KLIK Code</h1>
+        <p class="page-subtitle">Generate a 6-digit code to pay in stores or online.</p>
     </div>
 
-    <div class="grid gap-6 md:grid-cols-2">
-        <div class="rounded-xl border bg-card text-card-foreground shadow">
-            <div class="flex flex-col space-y-1.5 p-6">
-                <h3 class="font-semibold leading-none tracking-tight">Your Code</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Your Code</h3>
             </div>
-            <div class="p-6 pt-0 flex flex-col items-center justify-center min-h-[200px]">
+            <div style="padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 200px;">
                 @if (isLoading)
                 {
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <div style="margin-bottom: 1rem;">Loading...</div>
                 }
                 else if (!string.IsNullOrEmpty(klikCode))
                 {
-                    <div class="text-6xl font-bold tracking-widest text-primary mb-4 font-mono">
+                    <div style="font-size: 3.75rem; font-weight: 700; letter-spacing: 0.2em; color: var(--primary); margin-bottom: 1rem; font-family: monospace;">
                         @klikCode.Substring(0, 3) @klikCode.Substring(3, 3)
                     </div>
-                    <div class="text-sm text-muted-foreground flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-timer"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
-                        Expires in: <span class="font-medium text-foreground">@timeLeft s</span>
+                    <div style="font-size: 0.875rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
+                        Expires in: <span style="font-weight: 500; color: var(--text-primary);">@timeLeft s</span>
                     </div>
                 }
                 else if (!string.IsNullOrEmpty(errorMessage))
                 {
-                    <div class="text-destructive text-sm bg-destructive/10 p-3 rounded-md">
+                    <div class="alert alert-error">
                         @errorMessage
                     </div>
                 }
                 else
                 {
-                    <p class="text-muted-foreground text-center mb-6">Click the button below to generate a new KLIK payment code.</p>
+                    <p style="color: var(--text-muted); text-align: center; margin-bottom: 1.5rem;">Click the button below to generate a new KLIK payment code.</p>
                 }
 
                 <button @onclick="GenerateCode" disabled="@(isLoading || (!string.IsNullOrEmpty(klikCode) && timeLeft > 0))"
-                        class="mt-6 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full max-w-[200px]">
+                        class="btn btn-primary" style="margin-top: 1.5rem; width: 100%; max-width: 200px;">
                     @(string.IsNullOrEmpty(klikCode) ? "Generate Code" : "Generating...")
                 </button>
             </div>
         </div>
         
-        <div class="rounded-xl border bg-card text-card-foreground shadow">
-            <div class="flex flex-col space-y-1.5 p-6">
-                <h3 class="font-semibold leading-none tracking-tight">How it works</h3>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">How it works</h3>
             </div>
-            <div class="p-6 pt-0 text-sm text-muted-foreground space-y-4">
-                <ol class="list-decimal list-inside space-y-2">
+            <div style="padding: 1.5rem; font-size: 0.875rem; color: var(--text-muted);">
+                <ol style="padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
                     <li>Generate a 6-digit code using the button on the left.</li>
                     <li>Tell the cashier you want to pay with KLIK, or select KLIK online.</li>
                     <li>Enter the 6-digit code on the payment terminal or website.</li>

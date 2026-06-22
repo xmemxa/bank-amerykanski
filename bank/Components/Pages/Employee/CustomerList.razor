@@ -1,4 +1,9 @@
 @page "/employee/customers"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
+@inject ProtectedSessionStorage SessionStorage
 @rendermode InteractiveServer
 
 <PageTitle>Customer List – American Bank Employee Portal</PageTitle>
@@ -15,124 +20,156 @@
             <label class="form-label">Search</label>
             <InputText class="form-input" @bind-Value="searchQuery" placeholder="Search by name, SSN, or phone number..." style="max-width: 100%;" />
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">Account Type</label>
-            <select class="form-select" @bind="filterType">
-                <option value="">All Types</option>
-                <option value="Checking">Checking</option>
-                <option value="Savings">Savings</option>
-                <option value="Junior">Junior</option>
-            </select>
-        </div>
         <div class="form-group" style="margin-bottom: 0; display: flex; align-items: flex-end;">
             <button class="btn btn-primary" @onclick="ApplySearch">Search</button>
         </div>
     </div>
 
-    <!-- Results -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Results (8 customers)</h3>
-            <a href="/employee/create-customer" class="btn btn-primary">+ New Customer</a>
-        </div>
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 2rem;">Loading customers...</div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-error">@errorMessage</div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Results (@filteredCustomers.Count customers)</h3>
+                <div>
+                    <a href="/employee/create-customer" class="btn btn-primary" style="margin-right: 0.5rem;">+ New Customer</a>
+                    <a href="/employee/create-junior" class="btn btn-secondary">+ New Junior</a>
+                </div>
+            </div>
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Customer</th>
-                        <th>Phone / SSN</th>
-                        <th>Accounts</th>
-                        <th>Total Balance</th>
-                        <th>Joined</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-primary);">John Doe</td>
-                        <td>(555) 123-4567<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-1234</span></td>
-                        <td>
-                            <span class="badge badge-info">Checking</span>
-                            <span class="badge badge-info">Savings</span>
-                        </td>
-                        <td class="amount">$57,688.32</td>
-                        <td>Jan 15, 2024</td>
-                        <td>
-                            <a href="/employee/customer/1" class="btn btn-ghost">View</a>
-                            <a href="/employee/customer/1/edit" class="btn btn-ghost">Edit</a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-primary);">Sarah Johnson</td>
-                        <td>(555) 987-6543<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-5678</span></td>
-                        <td><span class="badge badge-info">Checking</span></td>
-                        <td class="amount">$3,240.50</td>
-                        <td>May 12, 2026</td>
-                        <td>
-                            <a href="/employee/customer/2" class="btn btn-ghost">View</a>
-                            <a href="/employee/customer/2/edit" class="btn btn-ghost">Edit</a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-primary);">Michael Chen</td>
-                        <td>(555) 246-8101<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-9012</span></td>
-                        <td><span class="badge badge-info">Savings</span></td>
-                        <td class="amount">$15,000.00</td>
-                        <td>May 11, 2026</td>
-                        <td>
-                            <a href="/employee/customer/3" class="btn btn-ghost">View</a>
-                            <a href="/employee/customer/3/edit" class="btn btn-ghost">Edit</a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-primary);">Emily Davis</td>
-                        <td>(555) 369-2580<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-3456</span></td>
-                        <td><span class="badge badge-info">Checking</span></td>
-                        <td class="amount">$8,920.75</td>
-                        <td>May 10, 2026</td>
-                        <td>
-                            <a href="/employee/customer/4" class="btn btn-ghost">View</a>
-                            <a href="/employee/customer/4/edit" class="btn btn-ghost">Edit</a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-primary);">James Wilson</td>
-                        <td>(555) 159-7530<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-7890</span></td>
-                        <td>
-                            <span class="badge badge-info">Checking</span>
-                            <span class="badge badge-info">Savings</span>
-                        </td>
-                        <td class="amount">$42,100.00</td>
-                        <td>May 9, 2026</td>
-                        <td>
-                            <a href="/employee/customer/5" class="btn btn-ghost">View</a>
-                            <a href="/employee/customer/5/edit" class="btn btn-ghost">Edit</a>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight: 600; color: var(--text-primary);">Lisa Martinez</td>
-                        <td>(555) 753-1590<br/><span style="font-size: 0.75rem; color: var(--text-muted);">***-**-2468</span></td>
-                        <td><span class="badge badge-info">Checking</span></td>
-                        <td class="amount">$1,450.30</td>
-                        <td>Apr 28, 2026</td>
-                        <td>
-                            <a href="/employee/customer/6" class="btn btn-ghost">View</a>
-                            <a href="/employee/customer/6/edit" class="btn btn-ghost">Edit</a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Phone / SSN</th>
+                            <th>Accounts</th>
+                            <th>Total Balance</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in filteredCustomers)
+                        {
+                            <tr>
+                                <td style="font-weight: 600; color: var(--text-primary);">@c.FirstName @c.LastName</td>
+                                <td>@c.PhoneNumber<br/><span style="font-size: 0.75rem; color: var(--text-muted);">@c.SocialSecurityNumber</span></td>
+                                <td>
+                                    @foreach(var acc in c.Accounts)
+                                    {
+                                        <span class="badge badge-info" style="margin-right: 0.25rem;">@acc.AccountType</span>
+                                    }
+                                </td>
+                                <td class="amount">@c.Accounts.Sum(a => a.Balance).ToString("C")</td>
+                                <td>@c.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                <td>
+                                    <a href="/employee/create-junior?parentId=@c.Id" class="btn btn-ghost">Add Junior</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    }
 </div>
 
 @code {
     private string searchQuery = "";
-    private string filterType = "";
+    private bool isLoading = true;
+    private string? errorMessage;
+    private List<CustomerDto> customers = new();
+    private List<CustomerDto> filteredCustomers = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+            else
+            {
+                errorMessage = "Authentication failed.";
+                isLoading = false;
+                return;
+            }
+
+            var resp = await client.GetAsync("api/auth/customers");
+            if (resp.IsSuccessStatusCode)
+            {
+                customers = await resp.Content.ReadFromJsonAsync<List<CustomerDto>>() ?? new();
+                filteredCustomers = customers;
+            }
+            else
+            {
+                errorMessage = "Failed to load customers.";
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "Error occurred while loading data.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
 
     private void ApplySearch()
     {
-        // TODO: Call API with search filters
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filteredCustomers = customers;
+        }
+        else
+        {
+            var q = searchQuery.ToLowerInvariant();
+            filteredCustomers = customers.Where(c => 
+                c.FirstName.ToLowerInvariant().Contains(q) || 
+                c.LastName.ToLowerInvariant().Contains(q) || 
+                c.PhoneNumber.Contains(q) || 
+                c.SocialSecurityNumber.Contains(q)
+            ).ToList();
+        }
+    }
+
+    public class CustomerDto
+    {
+        public Guid Id { get; set; }
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string PhoneNumber { get; set; } = "";
+        public string SocialSecurityNumber { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
+        public List<CustomerAccountDto> Accounts { get; set; } = new();
+    }
+
+    public class CustomerAccountDto
+    {
+        public Guid Id { get; set; }
+        public string AccountType { get; set; } = "";
+        public decimal Balance { get; set; }
     }
 }

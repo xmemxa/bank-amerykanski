@@ -1,4 +1,9 @@
 @page "/employee/dashboard"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
+@inject ProtectedSessionStorage SessionStorage
 @rendermode InteractiveServer
 
 <PageTitle>Employee Dashboard – American Bank</PageTitle>
@@ -9,90 +14,170 @@
         <p class="page-subtitle">Overview of today's banking operations</p>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-label">Total Customers</div>
-            <div class="stat-value">1,247</div>
-            <div class="stat-change stat-change-up">+12 this month</div>
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 2rem;">Loading dashboard data...</div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-error">@errorMessage</div>
+    }
+    else if (dashboardData != null)
+    {
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Customers</div>
+                <div class="stat-value">@dashboardData.TotalCustomers.ToString("N0")</div>
+                <div class="stat-change stat-change-up">+@dashboardData.NewCustomersThisMonth.ToString("N0") this month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Active Accounts</div>
+                <div class="stat-value">@dashboardData.TotalAccounts.ToString("N0")</div>
+                <div class="stat-change stat-change-up">+@dashboardData.NewAccountsThisMonth.ToString("N0") this month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Today's Transactions</div>
+                <div class="stat-value">@dashboardData.TodaysTransactionsCount.ToString("N0")</div>
+                <div class="stat-change">@dashboardData.TodaysTransactionsVolume.ToString("C") volume</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Pending Approvals</div>
+                <div class="stat-value">@dashboardData.PendingApprovals.ToString("N0")</div>
+                @if (dashboardData.PendingApprovals > 0)
+                {
+                    <div class="stat-change stat-change-warn">Requires attention</div>
+                }
+                else
+                {
+                    <div class="stat-change">All clear</div>
+                }
+            </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-label">Active Accounts</div>
-            <div class="stat-value">2,031</div>
-            <div class="stat-change stat-change-up">+18 this month</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Today's Transactions</div>
-            <div class="stat-value">89</div>
-            <div class="stat-change">$284,520.00 volume</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Pending Approvals</div>
-            <div class="stat-value">3</div>
-            <div class="stat-change stat-change-warn">Requires attention</div>
-        </div>
-    </div>
 
-    <!-- Quick Actions -->
-    <div class="quick-actions">
-        <a href="/employee/create-customer" class="btn btn-primary btn-lg">Create New Customer</a>
-        <a href="/employee/customers" class="btn btn-secondary btn-lg">Search Customers</a>
-    </div>
-
-    <!-- Recently Created Accounts -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">Recently Created Accounts</h3>
-            <a href="/employee/customers" class="btn btn-ghost">View All</a>
+        <!-- Quick Actions -->
+        <div class="quick-actions" style="margin-bottom: 2rem;">
+            <a href="/employee/create-customer" class="btn btn-primary btn-lg">Create New Customer</a>
+            <a href="/employee/customers" class="btn btn-secondary btn-lg">Search Customers</a>
         </div>
 
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Customer</th>
-                        <th>Email</th>
-                        <th>Account Type</th>
-                        <th>Account Number</th>
-                        <th>Created By</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>May 12, 2026</td>
-                        <td style="font-weight: 600; color: var(--text-primary);">Sarah Johnson</td>
-                        <td>sarah.johnson@email.com</td>
-                        <td><span class="badge badge-info">Checking</span></td>
-                        <td style="font-family: monospace;">0098761234</td>
-                        <td>Admin</td>
-                    </tr>
-                    <tr>
-                        <td>May 11, 2026</td>
-                        <td style="font-weight: 600; color: var(--text-primary);">Michael Chen</td>
-                        <td>m.chen@email.com</td>
-                        <td><span class="badge badge-info">Savings</span></td>
-                        <td style="font-family: monospace;">0098765678</td>
-                        <td>Admin</td>
-                    </tr>
-                    <tr>
-                        <td>May 10, 2026</td>
-                        <td style="font-weight: 600; color: var(--text-primary);">Emily Davis</td>
-                        <td>emily.d@email.com</td>
-                        <td><span class="badge badge-info">Checking</span></td>
-                        <td style="font-family: monospace;">0098769012</td>
-                        <td>Admin</td>
-                    </tr>
-                    <tr>
-                        <td>May 9, 2026</td>
-                        <td style="font-weight: 600; color: var(--text-primary);">James Wilson</td>
-                        <td>j.wilson@email.com</td>
-                        <td><span class="badge badge-info">Checking</span></td>
-                        <td style="font-family: monospace;">0098763456</td>
-                        <td>Admin</td>
-                    </tr>
-                </tbody>
-            </table>
+        <!-- Recently Created Accounts -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recently Created Accounts</h3>
+                <a href="/employee/customers" class="btn btn-ghost">View All</a>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Account Type</th>
+                            <th>Account Number</th>
+                            <th>Created By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (dashboardData.RecentAccounts.Any())
+                        {
+                            @foreach (var acc in dashboardData.RecentAccounts)
+                            {
+                                <tr>
+                                    <td>@acc.Date.ToString("MMM dd, yyyy")</td>
+                                    <td style="font-weight: 600; color: var(--text-primary);">@acc.CustomerName</td>
+                                    <td>@acc.Email</td>
+                                    <td><span class="badge badge-info">@acc.AccountType</span></td>
+                                    <td style="font-family: monospace;">@acc.AccountNumber</td>
+                                    <td>System</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" style="text-align: center;">No recent accounts found.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
+    }
 </div>
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+    private EmployeeDashboardDto? dashboardData;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var client = ClientFactory.CreateClient();
+            client.BaseAddress = new Uri(NavigationManager.BaseUri);
+            var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+            if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+            }
+            else
+            {
+                errorMessage = "Authentication failed.";
+                isLoading = false;
+                return;
+            }
+
+            var resp = await client.GetAsync("api/auth/employee-dashboard");
+            if (resp.IsSuccessStatusCode)
+            {
+                dashboardData = await resp.Content.ReadFromJsonAsync<EmployeeDashboardDto>();
+            }
+            else
+            {
+                errorMessage = "Failed to load dashboard data.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Error occurred while loading data.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class EmployeeDashboardDto
+    {
+        public int TotalCustomers { get; set; }
+        public int NewCustomersThisMonth { get; set; }
+        public int TotalAccounts { get; set; }
+        public int NewAccountsThisMonth { get; set; }
+        public int TodaysTransactionsCount { get; set; }
+        public decimal TodaysTransactionsVolume { get; set; }
+        public int PendingApprovals { get; set; }
+        public List<RecentAccountDto> RecentAccounts { get; set; } = new();
+    }
+
+    public class RecentAccountDto
+    {
+        public DateTime Date { get; set; }
+        public string CustomerName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string AccountType { get; set; } = "";
+        public string AccountNumber { get; set; } = "";
+    }
+}

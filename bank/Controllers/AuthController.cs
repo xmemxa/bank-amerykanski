@@ -173,6 +173,147 @@ namespace bank.Controllers
             });
         }
 
+        [Authorize(Roles = "Employee")]
+        [HttpPost("register-junior")]
+        public async Task<IActionResult> RegisterJunior([FromBody] JuniorRegisterDto request)
+        {
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+                return BadRequest("A user with this login ID already exists.");
+
+            var parentUser = await _context.Users.FindAsync(request.ParentUserId);
+            if (parentUser == null)
+                return BadRequest("Parent user not found.");
+
+            var parentPrimaryAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.UserId == parentUser.Id && a.AccountType != "Junior");
+            if (parentPrimaryAccount == null)
+                return BadRequest("Parent does not have a primary account to link to.");
+
+            if (request.Password.Length < 8 || 
+                !request.Password.Any(char.IsUpper) || 
+                !request.Password.Any(char.IsLower) || 
+                !request.Password.Any(char.IsDigit) || 
+                !request.Password.Any(ch => !char.IsLetterOrDigit(ch)))
+            {
+                return BadRequest("Password must be at least 8 characters long, and contain at least one uppercase letter, one lowercase letter, one digit, and one special character.");
+            }
+            
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            string uniqueAccountNumber = await GenerateUniqueUSAccountNumber();
+
+            try {
+                var juniorUser = new User
+                {
+                    Id = Guid.NewGuid(),
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    Username = request.Username,
+                    Role = "Junior",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(juniorUser);
+                
+                var account = new Account
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = juniorUser.Id,
+                    ParentAccountId = parentPrimaryAccount.Id,
+                    AccountNumber = uniqueAccountNumber,
+                    RoutingNumber = "123456789", 
+                    Balance = request.InitialDeposit,
+                    Currency = request.Currency,
+                    AccountType = "Junior",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Accounts.Add(account);
+                
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { 
+                    Message = "Junior account created successfully.", 
+                    RoutingNumber = account.RoutingNumber,
+                    AccountNumber = account.AccountNumber,
+                    InitialBalance = account.Balance,
+                    Currency = account.Currency
+                });
+            }
+            catch (Exception) {
+                await transaction.RollbackAsync();
+                return StatusCode(500, "An internal error occurred during registration. Please try again later.");
+            }
+        }
+
+        [Authorize(Roles = "Employee")]
+        [HttpGet("customers")]
+        public async Task<IActionResult> GetCustomers()
+        {
+            var customers = await _context.Users
+                .Where(u => u.Role == "Customer" || u.Role == "Junior")
+                .Select(u => new {
+                    u.Id,
+                    u.FirstName,
+                    u.LastName,
+                    u.PhoneNumber,
+                    u.SocialSecurityNumber,
+                    u.CreatedAt,
+                    Accounts = _context.Accounts.Where(a => a.UserId == u.Id).Select(a => new {
+                        a.Id,
+                        a.AccountType,
+                        a.Balance
+                    }).ToList()
+                })
+                .ToListAsync();
+
+            return Ok(customers);
+        }
+
+        [Authorize(Roles = "Employee")]
+        [HttpGet("employee-dashboard")]
+        public async Task<IActionResult> GetEmployeeDashboard()
+        {
+            var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var startOfDay = DateTime.UtcNow.Date;
+
+            var totalCustomers = await _context.Users.CountAsync(u => u.Role == "Customer" || u.Role == "Junior");
+            var newCustomersThisMonth = await _context.Users.CountAsync(u => (u.Role == "Customer" || u.Role == "Junior") && u.CreatedAt >= startOfMonth);
+
+            var totalAccounts = await _context.Accounts.CountAsync(a => a.AccountType != "Correspondent");
+            var newAccountsThisMonth = await _context.Accounts.CountAsync(a => a.AccountType != "Correspondent" && a.CreatedAt >= startOfMonth);
+
+            var todaysTransactions = await _context.Transactions.Where(t => t.Timestamp >= startOfDay && t.Status != "REJECTED").ToListAsync();
+            var todaysTxCount = todaysTransactions.Count;
+            var todaysTxVolume = todaysTransactions.Sum(t => t.Amount);
+
+            var pendingApprovals = await _context.Transactions.CountAsync(t => t.Status == "Pending_Approval");
+
+            var recentAccounts = await _context.Accounts
+                .Where(a => a.AccountType != "Correspondent")
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(5)
+                .Select(a => new {
+                    Date = a.CreatedAt,
+                    CustomerName = _context.Users.Where(u => u.Id == a.UserId).Select(u => u.FirstName + " " + u.LastName).FirstOrDefault(),
+                    Email = _context.Users.Where(u => u.Id == a.UserId).Select(u => u.Email).FirstOrDefault(),
+                    AccountType = a.AccountType,
+                    AccountNumber = a.AccountNumber
+                })
+                .ToListAsync();
+
+            return Ok(new {
+                TotalCustomers = totalCustomers,
+                NewCustomersThisMonth = newCustomersThisMonth,
+                TotalAccounts = totalAccounts,
+                NewAccountsThisMonth = newAccountsThisMonth,
+                TodaysTransactionsCount = todaysTxCount,
+                TodaysTransactionsVolume = todaysTxVolume,
+                PendingApprovals = pendingApprovals,
+                RecentAccounts = recentAccounts
+            });
+        }
+
         private async Task<string> GenerateUniqueUSAccountNumber()
         {
             string accountNumber = "";
@@ -279,5 +420,15 @@ namespace bank.Controllers
     public class Verify2FaDto {
         public string Username { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
+    }
+
+    public class JuniorRegisterDto {
+        public Guid ParentUserId { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Currency { get; set; } = "USD";
+        public decimal InitialDeposit { get; set; }
     }
 }

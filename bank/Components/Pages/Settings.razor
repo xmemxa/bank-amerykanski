@@ -1,4 +1,10 @@
 @page "/settings"
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IHttpClientFactory ClientFactory
+@inject NavigationManager NavigationManager
+@inject ProtectedSessionStorage SessionStorage
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
 
 <PageTitle>Settings – American Bank</PageTitle>
@@ -9,152 +15,249 @@
         <p class="page-subtitle">Manage your profile and security preferences</p>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 900px; margin: 0 auto;">
-        <!-- Personal Information -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Personal Information</h3>
-            </div>
-
-            @if (!string.IsNullOrEmpty(profileSuccess))
-            {
-                <div class="alert alert-success">@profileSuccess</div>
-            }
-
-            <EditForm Model="profileModel" OnValidSubmit="SaveProfile" FormName="ProfileForm">
-                <div class="form-group">
-                    <label class="form-label">First Name</label>
-                    <InputText class="form-input" @bind-Value="profileModel.FirstName" />
+    @if (isLoading)
+    {
+        <div style="text-align: center; padding: 2rem;">Loading settings...</div>
+    }
+    else
+    {
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 900px; margin: 0 auto;">
+            <!-- Personal Information -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Personal Information</h3>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Last Name</label>
-                    <InputText class="form-input" @bind-Value="profileModel.LastName" />
-                </div>
+                @if (!string.IsNullOrEmpty(profileSuccess))
+                {
+                    <div class="alert alert-success">@profileSuccess</div>
+                }
+                @if (!string.IsNullOrEmpty(profileError))
+                {
+                    <div class="alert alert-error">@profileError</div>
+                }
 
-                <div class="form-row">
+                <EditForm Model="profileModel" OnValidSubmit="SaveProfile" FormName="ProfileForm">
                     <div class="form-group">
-                        <label class="form-label">Phone Number</label>
-                        <InputText class="form-input" @bind-Value="profileModel.PhoneNumber" />
+                        <label class="form-label">First Name</label>
+                        <InputText class="form-input" @bind-Value="profileModel.FirstName" />
                     </div>
+
                     <div class="form-group">
-                        <label class="form-label">Physical Address</label>
-                        <InputText class="form-input" @bind-Value="profileModel.Address" />
+                        <label class="form-label">Last Name</label>
+                        <InputText class="form-input" @bind-Value="profileModel.LastName" />
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label">Social Security Number</label>
-                    <input type="text" class="form-input" value="***-**-1234" disabled style="background-color: var(--bg-primary); cursor: not-allowed;" />
-                </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <InputText class="form-input" @bind-Value="profileModel.PhoneNumber" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Physical Address</label>
+                            <InputText class="form-input" @bind-Value="profileModel.Address" />
+                        </div>
+                    </div>
 
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-            </EditForm>
-        </div>
+                    <div class="form-group">
+                        <label class="form-label">Social Security Number</label>
+                        <input type="text" class="form-input" value="@ssnDisplay" disabled style="background-color: var(--bg-primary); cursor: not-allowed;" />
+                    </div>
 
-        <!-- Security -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Security</h3>
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="text" class="form-input" value="@emailDisplay" disabled style="background-color: var(--bg-primary); cursor: not-allowed;" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </EditForm>
             </div>
 
-            @if (!string.IsNullOrEmpty(passwordSuccess))
-            {
-                <div class="alert alert-success">@passwordSuccess</div>
-            }
-            @if (!string.IsNullOrEmpty(passwordError))
-            {
-                <div class="alert alert-error">@passwordError</div>
-            }
-
-            <EditForm Model="passwordModel" OnValidSubmit="ChangePassword" FormName="PasswordForm">
-                <div class="form-group">
-                    <label class="form-label">Current Password</label>
-                    <InputText class="form-input" @bind-Value="passwordModel.CurrentPassword" type="password" />
+            <!-- Security -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Security</h3>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">New Password</label>
-                    <InputText class="form-input" @bind-Value="passwordModel.NewPassword" type="password" />
+                @if (!string.IsNullOrEmpty(passwordSuccess))
+                {
+                    <div class="alert alert-success">@passwordSuccess</div>
+                }
+                @if (!string.IsNullOrEmpty(passwordError))
+                {
+                    <div class="alert alert-error">@passwordError</div>
+                }
+
+                <EditForm Model="passwordModel" OnValidSubmit="ChangePassword" FormName="PasswordForm">
+                    <div class="form-group">
+                        <label class="form-label">Current Password</label>
+                        <InputText class="form-input" @bind-Value="passwordModel.CurrentPassword" type="password" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <InputText class="form-input" @bind-Value="passwordModel.NewPassword" type="password" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Confirm New Password</label>
+                        <InputText class="form-input" @bind-Value="passwordModel.ConfirmPassword" type="password" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </EditForm>
+            </div>
+
+            <!-- Account Overview -->
+            <div class="card" style="grid-column: 1 / -1;">
+                <div class="card-header">
+                    <h3 class="card-title">Your Accounts</h3>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Confirm New Password</label>
-                    <InputText class="form-input" @bind-Value="passwordModel.ConfirmPassword" type="password" />
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Account Type</th>
+                                <th>Routing Number</th>
+                                <th>Account Number</th>
+                                <th>Balance</th>
+                                <th>Currency</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (accounts != null && accounts.Any())
+                            {
+                                @foreach (var acc in accounts)
+                                {
+                                    <tr>
+                                        <td style="font-weight: 600; color: var(--text-primary);">@acc.AccountType</td>
+                                        <td style="font-family: monospace;">@acc.RoutingNumber</td>
+                                        <td style="font-family: monospace;">@acc.AccountNumber</td>
+                                        <td>@acc.Balance.ToString("C")</td>
+                                        <td>@acc.Currency</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="5" style="text-align: center;">No accounts found.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-
-                <button type="submit" class="btn btn-primary">Update Password</button>
-            </EditForm>
-        </div>
-
-        <!-- Account Overview -->
-        <div class="card" style="grid-column: 1 / -1;">
-            <div class="card-header">
-                <h3 class="card-title">Your Accounts</h3>
             </div>
 
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Account</th>
-                            <th>Type</th>
-                            <th>Routing Number</th>
-                            <th>Account Number</th>
-                            <th>Currency</th>
-                            <th>Opened</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="font-weight: 600; color: var(--text-primary);">Primary Checking</td>
-                            <td>Checking (Standard)</td>
-                            <td style="font-family: monospace;">123456789</td>
-                            <td style="font-family: monospace;">0012344521</td>
-                            <td>USD</td>
-                            <td>Jan 15, 2024</td>
-                        </tr>
-                        <tr>
-                            <td style="font-weight: 600; color: var(--text-primary);">Emergency Fund</td>
-                            <td>Savings (Standard)</td>
-                            <td style="font-family: monospace;">123456789</td>
-                            <td style="font-family: monospace;">0012347832</td>
-                            <td>USD</td>
-                            <td>Feb 3, 2024</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Danger Zone -->
+            <div class="card" style="grid-column: 1 / -1; border-color: rgba(239, 68, 68, 0.2);">
+                <div class="card-header">
+                    <h3 class="card-title" style="color: var(--accent-red);">Session</h3>
+                </div>
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
+                    Sign out of your American Bank account on this device.
+                </p>
+                <button class="btn btn-danger" @onclick="Logout">Sign Out</button>
             </div>
         </div>
-
-        <!-- Danger Zone -->
-        <div class="card" style="grid-column: 1 / -1; border-color: rgba(239, 68, 68, 0.2);">
-            <div class="card-header">
-                <h3 class="card-title" style="color: var(--accent-red);">Session</h3>
-            </div>
-            <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
-                Sign out of your American Bank account on this device.
-            </p>
-            <button class="btn btn-danger" @onclick="Logout">Sign Out</button>
-        </div>
-    </div>
+    }
 </div>
 
-@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
-@inject NavigationManager NavigationManager
-
 @code {
-    private ProfileModel profileModel = new() { FirstName = "John", LastName = "Doe", PhoneNumber = "(555) 123-4567", Address = "123 Main St, NY" };
+    private bool isLoading = true;
+    private ProfileModel profileModel = new();
     private PasswordModel passwordModel = new();
+    
+    private string ssnDisplay = "***-**-****";
+    private string emailDisplay = "";
+    private List<AccountDto> accounts = new();
+
     private string? profileSuccess;
+    private string? profileError;
     private string? passwordSuccess;
     private string? passwordError;
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadData();
+            StateHasChanged();
+        }
+    }
+
+    private async Task<HttpClient> CreateClientAsync()
+    {
+        var client = ClientFactory.CreateClient();
+        client.BaseAddress = new Uri(NavigationManager.BaseUri);
+        var tokenResult = await SessionStorage.GetAsync<string>("authToken");
+        if (tokenResult.Success && !string.IsNullOrEmpty(tokenResult.Value))
+        {
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", tokenResult.Value);
+        }
+        return client;
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var client = await CreateClientAsync();
+            
+            // Fetch profile
+            var profileResp = await client.GetAsync("api/account/profile");
+            if (profileResp.IsSuccessStatusCode)
+            {
+                var profile = await profileResp.Content.ReadFromJsonAsync<ProfileResponse>();
+                if (profile != null)
+                {
+                    profileModel.FirstName = profile.FirstName;
+                    profileModel.LastName = profile.LastName;
+                    profileModel.PhoneNumber = profile.PhoneNumber;
+                    profileModel.Address = profile.Address;
+                    ssnDisplay = profile.SocialSecurityNumber ?? "***-**-****";
+                    emailDisplay = profile.Email ?? "";
+                }
+            }
+
+            // Fetch summary for accounts
+            var summaryResp = await client.GetAsync("api/account/summary");
+            if (summaryResp.IsSuccessStatusCode)
+            {
+                var summary = await summaryResp.Content.ReadFromJsonAsync<SummaryResponse>();
+                if (summary != null)
+                {
+                    accounts = summary.Accounts;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            profileError = "Failed to load profile data.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
     private async Task SaveProfile()
     {
-        // TODO: Call API
-        await Task.Delay(300);
-        profileSuccess = "Profile updated successfully.";
+        profileError = null;
+        profileSuccess = null;
+
+        var client = await CreateClientAsync();
+        var resp = await client.PutAsJsonAsync("api/account/profile", profileModel);
+        
+        if (resp.IsSuccessStatusCode)
+        {
+            profileSuccess = "Profile updated successfully.";
+        }
+        else
+        {
+            profileError = "Failed to update profile.";
+        }
     }
 
     private async Task ChangePassword()
@@ -168,9 +271,22 @@
             return;
         }
 
-        // TODO: Call API
-        await Task.Delay(300);
-        passwordSuccess = "Password changed successfully.";
+        var client = await CreateClientAsync();
+        var resp = await client.PutAsJsonAsync("api/account/password", new { 
+            CurrentPassword = passwordModel.CurrentPassword,
+            NewPassword = passwordModel.NewPassword
+        });
+
+        if (resp.IsSuccessStatusCode)
+        {
+            passwordSuccess = "Password changed successfully.";
+            passwordModel = new PasswordModel(); // Clear form
+        }
+        else
+        {
+            var errorMsg = await resp.Content.ReadAsStringAsync();
+            passwordError = "Failed to change password. " + errorMsg;
+        }
     }
 
     private async Task Logout()
@@ -178,7 +294,6 @@
         if (AuthStateProvider is bank.Providers.CustomAuthStateProvider customProvider)
         {
             await customProvider.MarkUserAsLoggedOut();
-            // Wait for JS interop to properly delete the sessionStorage cookie before forcing a page reload
             await Task.Delay(200);
         }
         NavigationManager.NavigateTo("/login", forceLoad: true);
@@ -197,5 +312,30 @@
         public string CurrentPassword { get; set; } = "";
         public string NewPassword { get; set; } = "";
         public string ConfirmPassword { get; set; } = "";
+    }
+
+    public class ProfileResponse
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string PhoneNumber { get; set; } = "";
+        public string Address { get; set; } = "";
+        public string SocialSecurityNumber { get; set; } = "";
+        public string Email { get; set; } = "";
+    }
+
+    public class SummaryResponse
+    {
+        public List<AccountDto> Accounts { get; set; } = new();
+    }
+
+    public class AccountDto
+    {
+        public Guid Id { get; set; }
+        public string AccountType { get; set; } = "";
+        public string AccountNumber { get; set; } = "";
+        public string RoutingNumber { get; set; } = "";
+        public decimal Balance { get; set; }
+        public string Currency { get; set; } = "";
     }
 }

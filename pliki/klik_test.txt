@@ -1,0 +1,1 @@
+curl -X POST http://localhost:8001/api/v1/payments/initiate -H "X-KLIK-Agent-Api-Key: agent_yZwg5jJrETwj2zFuhzuvbmB-5j-G6A_Bs8iN4rXtQfndJiKYK1NlkQ" -H "Idempotency-Key: zamowienie-kawa-04" -H "Content-Type: application/json" -d "{\"code\": \"TUTAJ_NOWY_KOD\", \"amount\": \"25.50\", \"currency\": \"USD\", \"merchant_id\": \"80365a49-7313-4eeb-b348-80fa09ae5679\"}"
